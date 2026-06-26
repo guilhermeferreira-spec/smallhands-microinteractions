@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "smallhands — microinteractions",
   description: "Interactive presentation deck",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
