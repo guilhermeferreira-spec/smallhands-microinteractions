@@ -1,4 +1,4 @@
-import type * as Party from "partykit/server";
+import { routePartykitRequest, Server, type Connection } from "partyserver";
 
 export interface SlideMessage {
   type: "slide";
@@ -23,40 +23,43 @@ export interface InitMessage {
 }
 
 type IncomingMessage = SlideMessage | TapMessage;
-type OutgoingMessage = SlideMessage | TapAggregateMessage | InitMessage;
 
-export default class SmallHandsParty implements Party.Server {
-  currentSlide: number = 0;
-  tapTotal: number = 0;
-  // Rolling window: taps in the last 3 seconds
+interface Env {
+  SmallHandsParty: DurableObjectNamespace<SmallHandsParty>;
+}
+
+// One Durable Object instance per room. Holds the current slide and tap
+// totals in memory and broadcasts changes to every connected client.
+export class SmallHandsParty extends Server<Env> {
+  currentSlide = 0;
+  tapTotal = 0;
+  // Rolling window: tap timestamps from the last 3 seconds.
   recentTaps: number[] = [];
 
-  constructor(readonly room: Party.Room) {}
-
-  onConnect(conn: Party.Connection) {
-    // Send current state to late joiners
+  onConnect(connection: Connection) {
+    // Catch late joiners up to the current state.
     const init: InitMessage = {
       type: "init",
       slide: this.currentSlide,
       tapTotal: this.tapTotal,
     };
-    conn.send(JSON.stringify(init));
+    connection.send(JSON.stringify(init));
   }
 
-  onMessage(message: string, sender: Party.Connection) {
-    const msg = JSON.parse(message) as IncomingMessage;
+  onMessage(_connection: Connection, message: string | ArrayBuffer) {
+    const raw = typeof message === "string" ? message : "";
+    const msg = JSON.parse(raw) as IncomingMessage;
 
     if (msg.type === "slide") {
       this.currentSlide = msg.slide;
-      // Broadcast to all including sender
-      this.room.broadcast(JSON.stringify(msg));
+      // Broadcast to all, including the sender.
+      this.broadcast(JSON.stringify(msg));
     }
 
     if (msg.type === "tap") {
       this.tapTotal += 1;
       const now = Date.now();
       this.recentTaps.push(now);
-      // Keep only last 3s
       this.recentTaps = this.recentTaps.filter((t) => now - t < 3000);
 
       const aggregate: TapAggregateMessage = {
@@ -64,9 +67,16 @@ export default class SmallHandsParty implements Party.Server {
         count: this.recentTaps.length,
         total: this.tapTotal,
       };
-      this.room.broadcast(JSON.stringify(aggregate));
+      this.broadcast(JSON.stringify(aggregate));
     }
   }
 }
 
-SmallHandsParty satisfies Party.Worker;
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    return (
+      (await routePartykitRequest(request, env)) ||
+      new Response("Not Found", { status: 404 })
+    );
+  },
+} satisfies ExportedHandler<Env>;

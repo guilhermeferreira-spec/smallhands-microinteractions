@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import PartySocket from "partysocket";
 
 const PARTYKIT_HOST =
-  process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:1999";
+  process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:8787";
+// Must match the kebab-cased PartyServer binding name (SmallHandsParty).
+const PARTY = "small-hands-party";
 const ROOM = "main";
 
 export interface RoomState {
@@ -30,6 +32,7 @@ export function useRoom(options: UseRoomOptions = {}) {
   useEffect(() => {
     const socket = new PartySocket({
       host: PARTYKIT_HOST,
+      party: PARTY,
       room: ROOM,
     });
     socketRef.current = socket;

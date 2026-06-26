@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smallhands",
+  "main": "party/index.ts",
+  "compatibility_date": "2025-06-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [
+      { "name": "SmallHandsParty", "class_name": "SmallHandsParty" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SmallHandsParty"] }
+  ]
+}
