@@ -124,14 +124,23 @@ export function useChiiScene(onInteraction) {
   // Currently hovered model index (-1 = none)
   const hoveredModel = useRef(-1);
 
-  // Hover-count latch. The letters retract on hover, which can pull their
-  // geometry out from under the ray and cause a same-letter hover flicker.
-  // We keep the animation untouched but only COUNT a hover once per genuine
-  // entry: a different letter counts immediately; the same letter only
-  // re-counts after it's been left for longer than HOVER_COOLDOWN_MS.
+  // Static, world-space hit box per letter, computed once at rest pose.
+  // Hover is tested against THESE, not the morphing meshes, so the animation
+  // can never toggle the hit and the count can't flicker.
+  const letterBoxes = useRef([]);
+
+  // Hover-count latch — cheap insurance against a jittery trackpad. With the
+  // static boxes the same letter shouldn't re-fire on its own; this only
+  // matters for a deliberate re-hover, which is allowed after HOVER_COOLDOWN_MS.
   const lastCountedModel = useRef(-1);
   const lastCountedAt = useRef(-1e9);
   const HOVER_COOLDOWN_MS = 500;
+
+  // Debug mode (?debug=1): draw the hit boxes and log every hover/click once.
+  const debug = useRef(
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("debug"),
+  );
 
   // Build scene once
   useEffect(() => {
@@ -213,6 +222,22 @@ export function useChiiScene(onInteraction) {
     });
 
     morphGroups.current = groups;
+
+    // Static per-letter hit boxes (world-space, rest pose). setFromObject uses
+    // base-geometry bounds → the letter's stable silhouette, independent of the
+    // morph animation. Letters never move, so these stay valid all session.
+    scene.updateMatrixWorld(true);
+    letterBoxes.current = models.map((m) => new THREE.Box3().setFromObject(m));
+
+    if (debug.current) {
+      letterBoxes.current.forEach((box, mi) => {
+        const helper = new THREE.Box3Helper(box, new THREE.Color(0x00ff88));
+        helper.name = `__hitbox_${mi}`;
+        scene.add(helper);
+      });
+      console.debug("[hero] hit boxes built", letterBoxes.current.length);
+    }
+
     modelScene.current = scene;
     modelCamera.current = camera;
 
@@ -254,22 +279,28 @@ export function useChiiScene(onInteraction) {
   const raycaster = useRef(new THREE.Raycaster());
   const pointer = useRef(new THREE.Vector2(-9, -9));
 
-  // Hover is driven by POINTER MOVEMENT only — never by the per-frame morph
-  // animation. Raycasting the animating geometry every frame made the hit
-  // toggle on its own (letters retract out from under the ray), which fired
-  // hovers in an infinite loop once the socket echo started re-rendering.
-  // Sampling on mousemove means a stationary cursor keeps a stable hover.
+  // Hover is a pure function of POINTER POSITION tested against STATIC hit
+  // boxes (see letterBoxes). The morph animation never touches these boxes, so
+  // a still cursor — or a letter mid-animation — can't toggle or retrigger the
+  // hover. Evaluated on mousemove only; no per-frame raycast.
   useEffect(() => {
+    const leaveCurrent = () => {
+      const prev = hoveredModel.current;
+      if (prev < 0) return;
+      hoveredModel.current = -1;
+      springs.current[prev].target = TARGET_REST;
+      springs.current[prev].vel += DIP_VEL;
+      document.body.style.cursor = "default";
+      if (debug.current) console.debug("[hero] hover-leave", { letter: prev });
+    };
+
     const evaluateHover = () => {
-      if (!modelCamera.current) return;
+      if (!modelCamera.current || letterBoxes.current.length === 0) return;
       raycaster.current.setFromCamera(pointer.current, modelCamera.current);
 
       let hitModel = -1;
-      for (let mi = 0; mi < 4; mi++) {
-        const meshList = morphGroups.current[mi].map((m) => m.mesh);
-        if (meshList.length === 0) continue;
-        const hits = raycaster.current.intersectObjects(meshList, false);
-        if (hits.length > 0) {
+      for (let mi = 0; mi < letterBoxes.current.length; mi++) {
+        if (raycaster.current.ray.intersectsBox(letterBoxes.current[mi])) {
           hitModel = mi;
           break;
         }
@@ -288,7 +319,8 @@ export function useChiiScene(onInteraction) {
       if (hitModel >= 0) {
         springs.current[hitModel].target = TARGET_HOVER;
 
-        // Count once per genuine hover (see latch above), not per flicker.
+        // Count once per genuine hover. Static boxes make this stable; the
+        // latch is just belt-and-suspenders for a deliberate quick re-hover.
         const now =
           typeof performance !== "undefined" ? performance.now() : 0;
         const sameLetter = hitModel === lastCountedModel.current;
@@ -297,6 +329,8 @@ export function useChiiScene(onInteraction) {
           lastCountedModel.current = hitModel;
           lastCountedAt.current = now;
           onInteractionRef.current?.("hover");
+          if (debug.current)
+            console.debug("[hero] hover", { letter: hitModel, t: Math.round(now) });
         }
       }
     };
@@ -306,8 +340,22 @@ export function useChiiScene(onInteraction) {
       pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
       evaluateHover();
     };
+    // If the cursor leaves the window over a glyph, release it so the letter
+    // doesn't stay stuck retracted. mouseout fires on every element boundary,
+    // so only act when the pointer actually left the document (no relatedTarget).
+    const onOut = (e) => {
+      if (!e.relatedTarget && !e.toElement) leaveCurrent();
+    };
+    const onBlur = () => leaveCurrent();
+
     window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    window.addEventListener("mouseout", onOut);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseout", onOut);
+      window.removeEventListener("blur", onBlur);
+    };
   }, []);
 
   // Click — punch whichever model is hovered
@@ -320,6 +368,7 @@ export function useChiiScene(onInteraction) {
       springs.current[mi].pos = TARGET_CLICK;
       // A letter was clicked → punch animation fired → 1 interaction.
       onInteractionRef.current?.("tap");
+      if (debug.current) console.debug("[hero] click", { letter: mi });
     };
     window.addEventListener("click", onClick);
     return () => window.removeEventListener("click", onClick);
