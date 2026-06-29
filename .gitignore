@@ -45,3 +45,6 @@ next-env.d.ts
 
 # partykit local runtime state
 .partykit/state/
+
+# wrangler local runtime state
+.wrangler/

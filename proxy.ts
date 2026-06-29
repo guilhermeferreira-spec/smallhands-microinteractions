@@ -21,7 +21,7 @@ function deny(realm: string) {
   });
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const header = req.headers.get("authorization");
   const path = req.nextUrl.pathname;
 
