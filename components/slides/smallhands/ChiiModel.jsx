@@ -121,22 +121,24 @@ export function useChiiScene(onInteraction) {
     { pos: 1, vel: 0, target: TARGET_REST },
   ]);
 
-  // Currently hovered model index (-1 = none)
+  // Currently hovered model index (-1 = none) — drives the ANIMATION, set by
+  // the raw per-frame raycast (original behavior, restored).
   const hoveredModel = useRef(-1);
 
-  // Static, world-space hit box per letter, computed once at rest pose.
-  // Hover is tested against THESE, not the morphing meshes, so the animation
-  // can never toggle the hit and the count can't flicker.
-  const letterBoxes = useRef([]);
+  // Dwell-based hover COUNTING, decoupled from the raw (noisy) hover above.
+  // The raw hover transitions rapidly during a sweep / brief geometry flicker;
+  // counting every transition floods the socket, and the echoed setState storm
+  // is what made the animation stutter and the counter spin. We instead count
+  // a hover only after the cursor RESTS on a letter for DWELL_MS, tolerating
+  // brief drops to empty (GRACE_MS) so a held hover still counts exactly once.
+  const pendingLetter = useRef(-1);
+  const pendingSince = useRef(0);
+  const hoverCounted = useRef(false);
+  const emptySince = useRef(0);
+  const DWELL_MS = 120;
+  const GRACE_MS = 200;
 
-  // Hover-count latch — cheap insurance against a jittery trackpad. With the
-  // static boxes the same letter shouldn't re-fire on its own; this only
-  // matters for a deliberate re-hover, which is allowed after HOVER_COOLDOWN_MS.
-  const lastCountedModel = useRef(-1);
-  const lastCountedAt = useRef(-1e9);
-  const HOVER_COOLDOWN_MS = 500;
-
-  // Debug mode (?debug=1): draw the hit boxes and log every hover/click once.
+  // Debug mode (?debug=1): log one line per counted hover/click.
   const debug = useRef(
     typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).has("debug"),
@@ -222,22 +224,6 @@ export function useChiiScene(onInteraction) {
     });
 
     morphGroups.current = groups;
-
-    // Static per-letter hit boxes (world-space, rest pose). setFromObject uses
-    // base-geometry bounds → the letter's stable silhouette, independent of the
-    // morph animation. Letters never move, so these stay valid all session.
-    scene.updateMatrixWorld(true);
-    letterBoxes.current = models.map((m) => new THREE.Box3().setFromObject(m));
-
-    if (debug.current) {
-      letterBoxes.current.forEach((box, mi) => {
-        const helper = new THREE.Box3Helper(box, new THREE.Color(0x00ff88));
-        helper.name = `__hitbox_${mi}`;
-        scene.add(helper);
-      });
-      console.debug("[hero] hit boxes built", letterBoxes.current.length);
-    }
-
     modelScene.current = scene;
     modelCamera.current = camera;
 
@@ -279,36 +265,36 @@ export function useChiiScene(onInteraction) {
   const raycaster = useRef(new THREE.Raycaster());
   const pointer = useRef(new THREE.Vector2(-9, -9));
 
-  // Hover is a pure function of POINTER POSITION tested against STATIC hit
-  // boxes (see letterBoxes). The morph animation never touches these boxes, so
-  // a still cursor — or a letter mid-animation — can't toggle or retrigger the
-  // hover. Evaluated on mousemove only; no per-frame raycast.
   useEffect(() => {
-    const leaveCurrent = () => {
-      const prev = hoveredModel.current;
-      if (prev < 0) return;
-      hoveredModel.current = -1;
-      springs.current[prev].target = TARGET_REST;
-      springs.current[prev].vel += DIP_VEL;
-      document.body.style.cursor = "default";
-      if (debug.current) console.debug("[hero] hover-leave", { letter: prev });
+    const onMove = (e) => {
+      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
     };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
 
-    const evaluateHover = () => {
-      if (!modelCamera.current || letterBoxes.current.length === 0) return;
-      raycaster.current.setFromCamera(pointer.current, modelCamera.current);
+  // Hit-test each model independently each frame — ORIGINAL behavior that drives
+  // the animation. The raw hover can flicker (a retracting letter leaves the
+  // ray); the spring smooths it, so it was never visible. COUNTING is handled
+  // separately below on a dwell, so this flicker never reaches the socket.
+  useFrame(() => {
+    if (!modelCamera.current) return;
+    raycaster.current.setFromCamera(pointer.current, modelCamera.current);
 
-      let hitModel = -1;
-      for (let mi = 0; mi < letterBoxes.current.length; mi++) {
-        if (raycaster.current.ray.intersectsBox(letterBoxes.current[mi])) {
-          hitModel = mi;
-          break;
-        }
+    let hitModel = -1;
+    for (let mi = 0; mi < 4; mi++) {
+      const meshList = morphGroups.current[mi].map((m) => m.mesh);
+      if (meshList.length === 0) continue;
+      const hits = raycaster.current.intersectObjects(meshList, false);
+      if (hits.length > 0) {
+        hitModel = mi;
+        break;
       }
+    }
 
-      const prev = hoveredModel.current;
-      if (hitModel === prev) return;
-
+    const prev = hoveredModel.current;
+    if (hitModel !== prev) {
       hoveredModel.current = hitModel;
       document.body.style.cursor = hitModel >= 0 ? "pointer" : "default";
 
@@ -318,45 +304,38 @@ export function useChiiScene(onInteraction) {
       }
       if (hitModel >= 0) {
         springs.current[hitModel].target = TARGET_HOVER;
-
-        // Count once per genuine hover. Static boxes make this stable; the
-        // latch is just belt-and-suspenders for a deliberate quick re-hover.
-        const now =
-          typeof performance !== "undefined" ? performance.now() : 0;
-        const sameLetter = hitModel === lastCountedModel.current;
-        const cooledDown = now - lastCountedAt.current > HOVER_COOLDOWN_MS;
-        if (!sameLetter || cooledDown) {
-          lastCountedModel.current = hitModel;
-          lastCountedAt.current = now;
-          onInteractionRef.current?.("hover");
-          if (debug.current)
-            console.debug("[hero] hover", { letter: hitModel, t: Math.round(now) });
-        }
       }
-    };
+    }
 
-    const onMove = (e) => {
-      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      evaluateHover();
-    };
-    // If the cursor leaves the window over a glyph, release it so the letter
-    // doesn't stay stuck retracted. mouseout fires on every element boundary,
-    // so only act when the pointer actually left the document (no relatedTarget).
-    const onOut = (e) => {
-      if (!e.relatedTarget && !e.toElement) leaveCurrent();
-    };
-    const onBlur = () => leaveCurrent();
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseout", onOut);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseout", onOut);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, []);
+    // ── Dwell-based hover counting (decoupled from the raw hover above) ──
+    const now = typeof performance !== "undefined" ? performance.now() : 0;
+    if (hitModel >= 0) {
+      emptySince.current = 0;
+      if (hitModel !== pendingLetter.current) {
+        // A genuinely different letter → start a fresh dwell timer.
+        pendingLetter.current = hitModel;
+        pendingSince.current = now;
+        hoverCounted.current = false;
+      } else if (
+        !hoverCounted.current &&
+        now - pendingSince.current >= DWELL_MS
+      ) {
+        // Rested on the same letter long enough → count exactly once.
+        hoverCounted.current = true;
+        onInteractionRef.current?.("hover");
+        if (debug.current)
+          console.debug("[hero] hover", { letter: hitModel, t: Math.round(now) });
+      }
+    } else if (pendingLetter.current >= 0) {
+      // Empty: tolerate brief retract-induced gaps; only clear after GRACE_MS.
+      if (emptySince.current === 0) emptySince.current = now;
+      else if (now - emptySince.current > GRACE_MS) {
+        pendingLetter.current = -1;
+        hoverCounted.current = false;
+        emptySince.current = 0;
+      }
+    }
+  });
 
   // Click — punch whichever model is hovered
   useEffect(() => {
