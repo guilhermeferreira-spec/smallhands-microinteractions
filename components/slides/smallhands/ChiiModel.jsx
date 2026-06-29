@@ -254,33 +254,30 @@ export function useChiiScene(onInteraction) {
   const raycaster = useRef(new THREE.Raycaster());
   const pointer = useRef(new THREE.Vector2(-9, -9));
 
+  // Hover is driven by POINTER MOVEMENT only — never by the per-frame morph
+  // animation. Raycasting the animating geometry every frame made the hit
+  // toggle on its own (letters retract out from under the ray), which fired
+  // hovers in an infinite loop once the socket echo started re-rendering.
+  // Sampling on mousemove means a stationary cursor keeps a stable hover.
   useEffect(() => {
-    const onMove = (e) => {
-      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
+    const evaluateHover = () => {
+      if (!modelCamera.current) return;
+      raycaster.current.setFromCamera(pointer.current, modelCamera.current);
 
-  // Hit-test each model independently each frame
-  useFrame(() => {
-    if (!modelCamera.current) return;
-    raycaster.current.setFromCamera(pointer.current, modelCamera.current);
-
-    let hitModel = -1;
-    for (let mi = 0; mi < 4; mi++) {
-      const meshList = morphGroups.current[mi].map((m) => m.mesh);
-      if (meshList.length === 0) continue;
-      const hits = raycaster.current.intersectObjects(meshList, false);
-      if (hits.length > 0) {
-        hitModel = mi;
-        break;
+      let hitModel = -1;
+      for (let mi = 0; mi < 4; mi++) {
+        const meshList = morphGroups.current[mi].map((m) => m.mesh);
+        if (meshList.length === 0) continue;
+        const hits = raycaster.current.intersectObjects(meshList, false);
+        if (hits.length > 0) {
+          hitModel = mi;
+          break;
+        }
       }
-    }
 
-    const prev = hoveredModel.current;
-    if (hitModel !== prev) {
+      const prev = hoveredModel.current;
+      if (hitModel === prev) return;
+
       hoveredModel.current = hitModel;
       document.body.style.cursor = hitModel >= 0 ? "pointer" : "default";
 
@@ -302,8 +299,16 @@ export function useChiiScene(onInteraction) {
           onInteractionRef.current?.("hover");
         }
       }
-    }
-  });
+    };
+
+    const onMove = (e) => {
+      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      evaluateHover();
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
 
   // Click — punch whichever model is hovered
   useEffect(() => {
