@@ -4,11 +4,12 @@ import { useRef, useState, type MutableRefObject } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
+import { InteractionTally } from "@/components/InteractionTally";
 import { TitleSceneContents, TitleHTMLLayer } from "@/components/slides/Slide00Title";
 
 export default function AudiencePage() {
   const [slide, setSlide] = useState(0);
-  const { broadcastTap } = useRoom({
+  const { state, broadcastTap } = useRoom({
     onSlide: (s) => setSlide(s),
   });
 
@@ -17,6 +18,7 @@ export default function AudiencePage() {
   const htmlElRef = useRef<HTMLDivElement | null>(null);
 
   const isTitle = slide === 0;
+  const isLast = slide === SLIDES.length - 1;
   const SlideComponent = SLIDES[slide] ?? SLIDES[0];
 
   return (
@@ -52,6 +54,11 @@ export default function AudiencePage() {
           <SlideComponent interactive={true} onTap={broadcastTap} />
         )}
       </div>
+
+      {/* Final slide: reveal the room's total interactions */}
+      {isLast && (
+        <InteractionTally tapTotal={state.tapTotal} hoverTotal={state.hoverTotal} />
+      )}
     </div>
   );
 }

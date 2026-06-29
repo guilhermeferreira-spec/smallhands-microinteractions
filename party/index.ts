@@ -5,21 +5,26 @@ export interface SlideMessage {
   slide: number;
 }
 
+export type InteractionKind = "tap" | "hover";
+
 export interface TapMessage {
   type: "tap";
   clientId: string;
+  kind?: InteractionKind;
 }
 
 export interface TapAggregateMessage {
   type: "tap_aggregate";
-  count: number;
-  total: number;
+  count: number; // interactions in the last 3s (taps + hovers)
+  total: number; // cumulative taps
+  hoverTotal: number; // cumulative hovers
 }
 
 export interface InitMessage {
   type: "init";
   slide: number;
   tapTotal: number;
+  hoverTotal: number;
 }
 
 type IncomingMessage = SlideMessage | TapMessage;
@@ -33,7 +38,8 @@ interface Env {
 export class SmallHandsParty extends Server<Env> {
   currentSlide = 0;
   tapTotal = 0;
-  // Rolling window: tap timestamps from the last 3 seconds.
+  hoverTotal = 0;
+  // Rolling window: interaction timestamps from the last 3 seconds.
   recentTaps: number[] = [];
 
   onConnect(connection: Connection) {
@@ -42,6 +48,7 @@ export class SmallHandsParty extends Server<Env> {
       type: "init",
       slide: this.currentSlide,
       tapTotal: this.tapTotal,
+      hoverTotal: this.hoverTotal,
     };
     connection.send(JSON.stringify(init));
   }
@@ -57,7 +64,11 @@ export class SmallHandsParty extends Server<Env> {
     }
 
     if (msg.type === "tap") {
-      this.tapTotal += 1;
+      if (msg.kind === "hover") {
+        this.hoverTotal += 1;
+      } else {
+        this.tapTotal += 1;
+      }
       const now = Date.now();
       this.recentTaps.push(now);
       this.recentTaps = this.recentTaps.filter((t) => now - t < 3000);
@@ -66,6 +77,7 @@ export class SmallHandsParty extends Server<Env> {
         type: "tap_aggregate",
         count: this.recentTaps.length,
         total: this.tapTotal,
+        hoverTotal: this.hoverTotal,
       };
       this.broadcast(JSON.stringify(aggregate));
     }

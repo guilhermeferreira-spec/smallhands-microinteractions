@@ -21,7 +21,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { useChiiScene } from "./smallhands/ChiiModel.jsx";
 import smallhandsPreset from "./smallhands/smallhands-crt-preset.json";
-import type { SlideProps } from "./types";
+import type { SlideProps, InteractionKind } from "./types";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -682,7 +682,7 @@ declare function buildPipeline(): PipelineRefs;
 export function TitleHTMLLayer({ elRef, interactive, onTap }: {
   elRef: RefObject<HTMLDivElement | null>;
   interactive: boolean;
-  onTap: () => void;
+  onTap: (kind?: InteractionKind) => void;
 }) {
   return (
     <div
@@ -709,6 +709,31 @@ export function TitleHTMLLayer({ elRef, interactive, onTap }: {
         </span>
       </div>
 
+      {/* Invisible hit-area over the title text. The visible text is the
+          CRT-rendered texture; this transparent layer captures real pointer
+          events. Hover (mouse only) and click each count as one interaction. */}
+      {interactive && (
+        <div
+          role="button"
+          aria-label="interact with the title"
+          onPointerEnter={(e) => {
+            if (e.pointerType === "mouse") onTap("hover");
+          }}
+          onClick={() => onTap("tap")}
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "min(80vw, 640px)",
+            height: "45vh",
+            pointerEvents: "auto",
+            cursor: "pointer",
+            zIndex: 50,
+          }}
+        />
+      )}
+
       <div className="absolute top-27 left-1/4 -translate-x-1/2 w-64 h-64">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/smallhands/tryme.svg" alt="try me" className="absolute inset-0 w-full h-full" />
@@ -721,15 +746,6 @@ export function TitleHTMLLayer({ elRef, interactive, onTap }: {
         />
       </div>
 
-      {interactive && (
-        <button
-          onClick={onTap}
-          style={{ pointerEvents: "auto" }}
-          className="absolute bottom-12 left-1/2 -translate-x-1/2 px-8 py-4 border border-white/20 rounded-full text-white/50 text-sm font-mono hover:border-white/60 hover:text-white transition-all duration-300 active:scale-95 z-40"
-        >
-          tap
-        </button>
-      )}
     </div>
   );
 }

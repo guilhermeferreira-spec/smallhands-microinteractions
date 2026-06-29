@@ -16,7 +16,7 @@ export default function Slide05End({ interactive, onTap }: SlideProps) {
       </p>
       {interactive && (
         <button
-          onClick={onTap}
+          onClick={() => onTap("tap")}
           className="mt-8 text-xs text-white/20 font-mono border border-white/10 px-6 py-3 rounded-full
             hover:text-white/50 hover:border-white/30 transition-all duration-500"
         >

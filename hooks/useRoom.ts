@@ -9,10 +9,13 @@ const PARTYKIT_HOST =
 const PARTY = "small-hands-party";
 const ROOM = "main";
 
+export type InteractionKind = "tap" | "hover";
+
 export interface RoomState {
   slide: number;
-  tapCount: number; // recent taps (3s window)
-  tapTotal: number;
+  tapCount: number; // recent interactions (3s window)
+  tapTotal: number; // cumulative taps
+  hoverTotal: number; // cumulative hovers
 }
 
 interface UseRoomOptions {
@@ -25,6 +28,7 @@ export function useRoom(options: UseRoomOptions = {}) {
     slide: 0,
     tapCount: 0,
     tapTotal: 0,
+    hoverTotal: 0,
   });
   const onSlideRef = useRef(options.onSlide);
   onSlideRef.current = options.onSlide;
@@ -41,7 +45,12 @@ export function useRoom(options: UseRoomOptions = {}) {
       const msg = JSON.parse(event.data);
 
       if (msg.type === "init") {
-        setState((s) => ({ ...s, slide: msg.slide, tapTotal: msg.tapTotal }));
+        setState((s) => ({
+          ...s,
+          slide: msg.slide,
+          tapTotal: msg.tapTotal,
+          hoverTotal: msg.hoverTotal ?? 0,
+        }));
         onSlideRef.current?.(msg.slide);
       }
 
@@ -55,6 +64,7 @@ export function useRoom(options: UseRoomOptions = {}) {
           ...s,
           tapCount: msg.count,
           tapTotal: msg.total,
+          hoverTotal: msg.hoverTotal ?? s.hoverTotal,
         }));
       }
     });
@@ -68,9 +78,16 @@ export function useRoom(options: UseRoomOptions = {}) {
     socketRef.current?.send(JSON.stringify({ type: "slide", slide }));
   }, []);
 
-  const broadcastTap = useCallback(() => {
+  const broadcastTap = useCallback((kind?: InteractionKind) => {
+    // Anything that isn't an explicit "hover" counts as a tap — this keeps
+    // it safe to use directly as a DOM handler (where the arg is an event).
+    const resolved: InteractionKind = kind === "hover" ? "hover" : "tap";
     socketRef.current?.send(
-      JSON.stringify({ type: "tap", clientId: socketRef.current?.id ?? "?" })
+      JSON.stringify({
+        type: "tap",
+        clientId: socketRef.current?.id ?? "?",
+        kind: resolved,
+      })
     );
   }, []);
 
