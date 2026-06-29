@@ -124,6 +124,15 @@ export function useChiiScene(onInteraction) {
   // Currently hovered model index (-1 = none)
   const hoveredModel = useRef(-1);
 
+  // Hover-count latch. The letters retract on hover, which can pull their
+  // geometry out from under the ray and cause a same-letter hover flicker.
+  // We keep the animation untouched but only COUNT a hover once per genuine
+  // entry: a different letter counts immediately; the same letter only
+  // re-counts after it's been left for longer than HOVER_COOLDOWN_MS.
+  const lastCountedModel = useRef(-1);
+  const lastCountedAt = useRef(-1e9);
+  const HOVER_COOLDOWN_MS = 500;
+
   // Build scene once
   useEffect(() => {
     const scene = new THREE.Scene();
@@ -281,8 +290,17 @@ export function useChiiScene(onInteraction) {
       }
       if (hitModel >= 0) {
         springs.current[hitModel].target = TARGET_HOVER;
-        // A new letter became hovered → its animation fired → 1 interaction.
-        onInteractionRef.current?.("hover");
+
+        // Count once per genuine hover (see latch above), not per flicker.
+        const now =
+          typeof performance !== "undefined" ? performance.now() : 0;
+        const sameLetter = hitModel === lastCountedModel.current;
+        const cooledDown = now - lastCountedAt.current > HOVER_COOLDOWN_MS;
+        if (!sameLetter || cooledDown) {
+          lastCountedModel.current = hitModel;
+          lastCountedAt.current = now;
+          onInteractionRef.current?.("hover");
+        }
       }
     }
   });

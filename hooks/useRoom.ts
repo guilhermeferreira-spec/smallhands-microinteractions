@@ -91,5 +91,9 @@ export function useRoom(options: UseRoomOptions = {}) {
     );
   }, []);
 
-  return { state, broadcastSlide, broadcastTap };
+  const broadcastReset = useCallback(() => {
+    socketRef.current?.send(JSON.stringify({ type: "reset" }));
+  }, []);
+
+  return { state, broadcastSlide, broadcastTap, broadcastReset };
 }

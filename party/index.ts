@@ -27,7 +27,11 @@ export interface InitMessage {
   hoverTotal: number;
 }
 
-type IncomingMessage = SlideMessage | TapMessage;
+export interface ResetMessage {
+  type: "reset";
+}
+
+type IncomingMessage = SlideMessage | TapMessage | ResetMessage;
 
 interface Env {
   SmallHandsParty: DurableObjectNamespace<SmallHandsParty>;
@@ -61,6 +65,20 @@ export class SmallHandsParty extends Server<Env> {
       this.currentSlide = msg.slide;
       // Broadcast to all, including the sender.
       this.broadcast(JSON.stringify(msg));
+    }
+
+    if (msg.type === "reset") {
+      this.tapTotal = 0;
+      this.hoverTotal = 0;
+      this.recentTaps = [];
+      const aggregate: TapAggregateMessage = {
+        type: "tap_aggregate",
+        count: 0,
+        total: 0,
+        hoverTotal: 0,
+      };
+      this.broadcast(JSON.stringify(aggregate));
+      return;
     }
 
     if (msg.type === "tap") {

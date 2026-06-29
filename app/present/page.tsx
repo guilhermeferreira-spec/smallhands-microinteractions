@@ -12,9 +12,15 @@ const TOTAL = SLIDES.length;
 
 export default function PresenterPage() {
   const [slide, setSlide] = useState(0);
-  const { state, broadcastSlide, broadcastTap } = useRoom();
+  const { state, broadcastSlide, broadcastTap, broadcastReset } = useRoom();
 
   const htmlElRef = useRef<HTMLDivElement | null>(null);
+
+  const resetInteractions = useCallback(() => {
+    if (window.confirm("Reset the interaction counter to zero?")) {
+      broadcastReset();
+    }
+  }, [broadcastReset]);
 
   // Sync local slide → room on change
   useEffect(() => {
@@ -95,9 +101,23 @@ export default function PresenterPage() {
         </button>
       </div>
 
-      {/* Interaction counter badge */}
-      <div className="absolute top-4 right-4 text-white/50 text-xs font-mono" style={{ zIndex: 10 }}>
-        {state.tapTotal + state.hoverTotal} interactions · {state.tapTotal} taps · {state.hoverTotal} hovers · {state.tapCount} recent
+      {/* Interaction counter badge + reset */}
+      <div className="absolute top-4 right-4 flex items-center gap-3 text-white/50 text-xs font-mono" style={{ zIndex: 10 }}>
+        <span>
+          {state.tapTotal + state.hoverTotal} interactions · {state.tapTotal} taps · {state.hoverTotal} hovers · {state.tapCount} recent
+        </span>
+        <button
+          onClick={resetInteractions}
+          title="Reset interaction counter"
+          aria-label="Reset interaction counter"
+          className="flex items-center justify-center w-7 h-7 rounded border border-white/20 text-white/50 hover:text-white/90 hover:border-white/50 transition-colors"
+        >
+          {/* circular reset arrow */}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
       </div>
     </div>
   );
