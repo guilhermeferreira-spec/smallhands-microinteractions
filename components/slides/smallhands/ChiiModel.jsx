@@ -131,12 +131,9 @@ export function useChiiScene(onInteraction) {
   // is what made the animation stutter and the counter spin. We instead count
   // a hover only after the cursor RESTS on a letter for DWELL_MS, tolerating
   // brief drops to empty (GRACE_MS) so a held hover still counts exactly once.
-  const pendingLetter = useRef(-1);
-  const pendingSince = useRef(0);
-  const hoverCounted = useRef(false);
-  const emptySince = useRef(0);
-  const DWELL_MS = 120;
-  const GRACE_MS = 200;
+  const countedLetter = useRef(-1); // last letter counted; blocks recount
+  const emptySince = useRef(0); // when pointer first left all letters
+  const GRACE_MS = 400; // empty must persist this long to re-arm
 
   // Debug mode (?debug=1): log one line per counted hover/click.
   const debug = useRef(
@@ -307,31 +304,23 @@ export function useChiiScene(onInteraction) {
       }
     }
 
-    // ── Dwell-based hover counting (decoupled from the raw hover above) ──
+    // ── Leave-latched hover counting (decoupled from the raw hover above) ──
+    // Count once when entering a letter different from the last counted one.
+    // Same letter = blocked, even through retract flicker (brief -1 gaps are
+    // ignored). Re-arm only after the pointer truly leaves (empty > GRACE_MS).
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     if (hitModel >= 0) {
       emptySince.current = 0;
-      if (hitModel !== pendingLetter.current) {
-        // A genuinely different letter → start a fresh dwell timer.
-        pendingLetter.current = hitModel;
-        pendingSince.current = now;
-        hoverCounted.current = false;
-      } else if (
-        !hoverCounted.current &&
-        now - pendingSince.current >= DWELL_MS
-      ) {
-        // Rested on the same letter long enough → count exactly once.
-        hoverCounted.current = true;
+      if (hitModel !== countedLetter.current) {
+        countedLetter.current = hitModel;
         onInteractionRef.current?.("hover");
         if (debug.current)
           console.debug("[hero] hover", { letter: hitModel, t: Math.round(now) });
       }
-    } else if (pendingLetter.current >= 0) {
-      // Empty: tolerate brief retract-induced gaps; only clear after GRACE_MS.
+    } else if (countedLetter.current >= 0) {
       if (emptySince.current === 0) emptySince.current = now;
       else if (now - emptySince.current > GRACE_MS) {
-        pendingLetter.current = -1;
-        hoverCounted.current = false;
+        countedLetter.current = -1; // real leave → allow re-count on re-enter
         emptySince.current = 0;
       }
     }

@@ -7,10 +7,11 @@ export interface SlideMessage {
 
 export type InteractionKind = "tap" | "hover";
 
-export interface TapMessage {
-  type: "tap";
-  clientId: string;
-  kind?: InteractionKind;
+// Clients accumulate interactions locally and flush a batch ~once/second.
+export interface TapBatchMessage {
+  type: "tap_batch";
+  taps: number;
+  hovers: number;
 }
 
 export interface TapAggregateMessage {
@@ -31,7 +32,7 @@ export interface ResetMessage {
   type: "reset";
 }
 
-type IncomingMessage = SlideMessage | TapMessage | ResetMessage;
+type IncomingMessage = SlideMessage | TapBatchMessage | ResetMessage;
 
 interface Env {
   SmallHandsParty: DurableObjectNamespace<SmallHandsParty>;
@@ -81,14 +82,15 @@ export class SmallHandsParty extends Server<Env> {
       return;
     }
 
-    if (msg.type === "tap") {
-      if (msg.kind === "hover") {
-        this.hoverTotal += 1;
-      } else {
-        this.tapTotal += 1;
-      }
+    if (msg.type === "tap_batch") {
+      const taps = Math.max(0, msg.taps | 0);
+      const hovers = Math.max(0, msg.hovers | 0);
+      this.tapTotal += taps;
+      this.hoverTotal += hovers;
+
       const now = Date.now();
-      this.recentTaps.push(now);
+      const added = taps + hovers;
+      for (let i = 0; i < added; i++) this.recentTaps.push(now);
       this.recentTaps = this.recentTaps.filter((t) => now - t < 3000);
 
       const aggregate: TapAggregateMessage = {

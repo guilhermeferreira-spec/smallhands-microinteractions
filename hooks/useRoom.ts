@@ -33,6 +33,13 @@ export function useRoom(options: UseRoomOptions = {}) {
   const onSlideRef = useRef(options.onSlide);
   onSlideRef.current = options.onSlide;
 
+  // Interactions are accumulated in refs (zero re-render, immune to jittery
+  // hover) and flushed to the server at most once/second as a batch. The
+  // server holds the grand total and echoes an aggregate ≤1x/sec, so a
+  // re-render storm is impossible and the 3D hero is never touched by counting.
+  const pendingTaps = useRef(0);
+  const pendingHovers = useRef(0);
+
   useEffect(() => {
     const socket = new PartySocket({
       host: PARTYKIT_HOST,
@@ -69,8 +76,19 @@ export function useRoom(options: UseRoomOptions = {}) {
       }
     });
 
+    // Flush accumulated interactions to the server once per second.
+    const flush = setInterval(() => {
+      const taps = pendingTaps.current;
+      const hovers = pendingHovers.current;
+      if (taps === 0 && hovers === 0) return;
+      pendingTaps.current = 0;
+      pendingHovers.current = 0;
+      socket.send(JSON.stringify({ type: "tap_batch", taps, hovers }));
+    }, 1000);
+
     return () => {
       socket.close();
+      clearInterval(flush);
     };
   }, []);
 
@@ -79,19 +97,16 @@ export function useRoom(options: UseRoomOptions = {}) {
   }, []);
 
   const broadcastTap = useCallback((kind?: InteractionKind) => {
-    // Anything that isn't an explicit "hover" counts as a tap — this keeps
-    // it safe to use directly as a DOM handler (where the arg is an event).
-    const resolved: InteractionKind = kind === "hover" ? "hover" : "tap";
-    socketRef.current?.send(
-      JSON.stringify({
-        type: "tap",
-        clientId: socketRef.current?.id ?? "?",
-        kind: resolved,
-      })
-    );
+    // Increment a ref only — NO socket, NO re-render. Safe to call from a
+    // jittery per-frame hover or directly as a DOM handler (event arg = tap).
+    // The 1s flush above batches these to the server.
+    if (kind === "hover") pendingHovers.current += 1;
+    else pendingTaps.current += 1;
   }, []);
 
   const broadcastReset = useCallback(() => {
+    pendingTaps.current = 0;
+    pendingHovers.current = 0;
     socketRef.current?.send(JSON.stringify({ type: "reset" }));
   }, []);
 

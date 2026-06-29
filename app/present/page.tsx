@@ -1,12 +1,12 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, type MutableRefObject } from "react";
-import { Canvas } from "@react-three/fiber";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
-import { TitleSceneContents, TitleHTMLLayer } from "@/components/slides/Slide00Title";
+import { HeroCanvas } from "@/components/HeroCanvas";
+import { TitleHTMLLayer } from "@/components/slides/Slide00Title";
 
 const TOTAL = SLIDES.length;
 
@@ -45,27 +45,13 @@ export default function PresenterPage() {
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
-      {/* Persistent Canvas — mounts ONCE, never unmounts */}
-      <Canvas
-        style={{
-          position: "fixed",
-          inset: 0,
-          width: "100vw",
-          height: "100vh",
-          background: "#000",
-          zIndex: 1,
-          pointerEvents: "none",
-        }}
-        gl={{ antialias: true, alpha: false }}
-        frameloop="always"
-      >
-        {isTitle && (
-          <TitleSceneContents
-            htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>}
-            onInteraction={broadcastTap}
-          />
-        )}
-      </Canvas>
+      {/* Persistent Canvas — mounts ONCE, never unmounts. Memoized so
+          interaction-count re-renders never touch the 3D scene. */}
+      <HeroCanvas
+        active={isTitle}
+        htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>}
+        onInteraction={broadcastTap}
+      />
 
       {/* Slide overlay — plain DOM, above canvas */}
       <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }}>
