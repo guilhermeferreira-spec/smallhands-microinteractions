@@ -93,8 +93,14 @@ function applyBlenderCamera(cam, aspect) {
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
-export function useChiiScene() {
+export function useChiiScene(onInteraction) {
   const { size } = useThree();
+
+  // Stable ref so frame-loop / event handlers always see the latest callback.
+  const onInteractionRef = useRef(onInteraction);
+  useEffect(() => {
+    onInteractionRef.current = onInteraction;
+  }, [onInteraction]);
   const { scene: gltfChii } = useGLTF(chiiUrl);
   const { scene: gltfSa } = useGLTF(saUrl);
   const { scene: gltfTe } = useGLTF(teUrl);
@@ -275,6 +281,8 @@ export function useChiiScene() {
       }
       if (hitModel >= 0) {
         springs.current[hitModel].target = TARGET_HOVER;
+        // A new letter became hovered → its animation fired → 1 interaction.
+        onInteractionRef.current?.("hover");
       }
     }
   });
@@ -287,6 +295,8 @@ export function useChiiScene() {
       springs.current[mi].target = TARGET_HOVER;
       springs.current[mi].vel -= 8.0;
       springs.current[mi].pos = TARGET_CLICK;
+      // A letter was clicked → punch animation fired → 1 interaction.
+      onInteractionRef.current?.("tap");
     };
     window.addEventListener("click", onClick);
     return () => window.removeEventListener("click", onClick);

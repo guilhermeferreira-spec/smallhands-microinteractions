@@ -38,7 +38,10 @@ export default function AudiencePage() {
         frameloop="always"
       >
         {isTitle && (
-          <TitleSceneContents htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>} />
+          <TitleSceneContents
+            htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>}
+            onInteraction={broadcastTap}
+          />
         )}
       </Canvas>
 

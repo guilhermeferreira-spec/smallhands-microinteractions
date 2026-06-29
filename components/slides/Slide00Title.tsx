@@ -362,13 +362,14 @@ function loadPreset() {
 
 // ── ChiiSceneManager ──────────────────────────────────────────────────────────
 
-function ChiiSceneManager({ trailConfig, modelSceneRef, modelCameraRef, lightRef }: {
+function ChiiSceneManager({ trailConfig, modelSceneRef, modelCameraRef, lightRef, onInteraction }: {
   trailConfig: typeof DEFAULTS;
   modelSceneRef: MutableRefObject<THREE.Scene | null>;
   modelCameraRef: MutableRefObject<THREE.Camera | null>;
   lightRef: MutableRefObject<THREE.DirectionalLight | null>;
+  onInteraction?: (kind?: InteractionKind) => void;
 }) {
-  const chii = useChiiScene();
+  const chii = useChiiScene(onInteraction);
 
   useFrame(() => {
     modelSceneRef.current = chii.modelScene.current;
@@ -709,31 +710,6 @@ export function TitleHTMLLayer({ elRef, interactive, onTap }: {
         </span>
       </div>
 
-      {/* Invisible hit-area over the title text. The visible text is the
-          CRT-rendered texture; this transparent layer captures real pointer
-          events. Hover (mouse only) and click each count as one interaction. */}
-      {interactive && (
-        <div
-          role="button"
-          aria-label="interact with the title"
-          onPointerEnter={(e) => {
-            if (e.pointerType === "mouse") onTap("hover");
-          }}
-          onClick={() => onTap("tap")}
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "min(80vw, 640px)",
-            height: "45vh",
-            pointerEvents: "auto",
-            cursor: "pointer",
-            zIndex: 50,
-          }}
-        />
-      )}
-
       <div className="absolute top-27 left-1/4 -translate-x-1/2 w-64 h-64">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/smallhands/tryme.svg" alt="try me" className="absolute inset-0 w-full h-full" />
@@ -752,8 +728,9 @@ export function TitleHTMLLayer({ elRef, interactive, onTap }: {
 
 // ── TitleSceneContents — r3f children, rendered inside the hoisted Canvas ────
 
-export function TitleSceneContents({ htmlElRef }: {
+export function TitleSceneContents({ htmlElRef, onInteraction }: {
   htmlElRef: MutableRefObject<HTMLElement | null>;
+  onInteraction?: (kind?: InteractionKind) => void;
 }) {
   const [config] = useState(loadPreset);
   const modelSceneRef = useRef<THREE.Scene | null>(null);
@@ -767,6 +744,7 @@ export function TitleSceneContents({ htmlElRef }: {
         modelSceneRef={modelSceneRef}
         modelCameraRef={modelCameraRef}
         lightRef={lightRef}
+        onInteraction={onInteraction}
       />
       <SmallhandsCRT
         trailConfig={config}

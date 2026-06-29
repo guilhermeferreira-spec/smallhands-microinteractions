@@ -12,7 +12,7 @@ const TOTAL = SLIDES.length;
 
 export default function PresenterPage() {
   const [slide, setSlide] = useState(0);
-  const { state, broadcastSlide } = useRoom();
+  const { state, broadcastSlide, broadcastTap } = useRoom();
 
   const htmlElRef = useRef<HTMLDivElement | null>(null);
 
@@ -54,7 +54,10 @@ export default function PresenterPage() {
         frameloop="always"
       >
         {isTitle && (
-          <TitleSceneContents htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>} />
+          <TitleSceneContents
+            htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>}
+            onInteraction={broadcastTap}
+          />
         )}
       </Canvas>
 
