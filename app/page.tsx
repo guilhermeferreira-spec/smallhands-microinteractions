@@ -6,6 +6,10 @@ import { SLIDES } from "@/components/slides";
 import { InteractionTally } from "@/components/InteractionTally";
 import { HeroCanvas } from "@/components/HeroCanvas";
 import { TitleHTMLLayer } from "@/components/slides/Slide00Title";
+import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
+
+// Index of the anatomy slide in the SLIDES array. Must match the presenter page.
+const SLIDE02_INDEX = 2;
 
 export default function AudiencePage() {
   const [slide, setSlide] = useState(0);
@@ -18,6 +22,7 @@ export default function AudiencePage() {
   const htmlElRef = useRef<HTMLDivElement | null>(null);
 
   const isTitle = slide === 0;
+  const isSlide02 = slide === SLIDE02_INDEX;
   const isLast = slide === SLIDES.length - 1;
   const SlideComponent = SLIDES[slide] ?? SLIDES[0];
 
@@ -38,6 +43,14 @@ export default function AudiencePage() {
             elRef={htmlElRef}
             interactive={true}
             onTap={broadcastTap}
+          />
+        ) : isSlide02 ? (
+          // Audience watches the presenter's highlight. No onSelect, no
+          // isPresenter → words render as plain text, no clicking.
+          <Slide02WhatIs
+            interactive={false}
+            onTap={() => {}}
+            activeIndex={state.activeIndex}
           />
         ) : (
           <SlideComponent interactive={true} onTap={broadcastTap} />

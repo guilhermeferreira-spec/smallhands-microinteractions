@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import PartySocket from "partysocket";
 
-const PARTYKIT_HOST =
-  process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:8787";
+const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST ?? "localhost:8787";
 // Must match the kebab-cased PartyServer binding name (SmallHandsParty).
 const PARTY = "small-hands-party";
 const ROOM = "main";
@@ -13,6 +12,7 @@ export type InteractionKind = "tap" | "hover";
 
 export interface RoomState {
   slide: number;
+  activeIndex: number; // highlighted part on Slide02 (-1 = none)
   tapCount: number; // recent interactions (3s window)
   tapTotal: number; // cumulative taps
   hoverTotal: number; // cumulative hovers
@@ -26,6 +26,7 @@ export function useRoom(options: UseRoomOptions = {}) {
   const socketRef = useRef<PartySocket | null>(null);
   const [state, setState] = useState<RoomState>({
     slide: 0,
+    activeIndex: -1,
     tapCount: 0,
     tapTotal: 0,
     hoverTotal: 0,
@@ -55,6 +56,7 @@ export function useRoom(options: UseRoomOptions = {}) {
         setState((s) => ({
           ...s,
           slide: msg.slide,
+          activeIndex: msg.activeIndex ?? -1,
           tapTotal: msg.tapTotal,
           hoverTotal: msg.hoverTotal ?? 0,
         }));
@@ -64,6 +66,10 @@ export function useRoom(options: UseRoomOptions = {}) {
       if (msg.type === "slide") {
         setState((s) => ({ ...s, slide: msg.slide }));
         onSlideRef.current?.(msg.slide);
+      }
+
+      if (msg.type === "activeIndex") {
+        setState((s) => ({ ...s, activeIndex: msg.index }));
       }
 
       if (msg.type === "tap_aggregate") {
@@ -96,6 +102,10 @@ export function useRoom(options: UseRoomOptions = {}) {
     socketRef.current?.send(JSON.stringify({ type: "slide", slide }));
   }, []);
 
+  const broadcastActiveIndex = useCallback((index: number) => {
+    socketRef.current?.send(JSON.stringify({ type: "activeIndex", index }));
+  }, []);
+
   const broadcastTap = useCallback((kind?: InteractionKind) => {
     // Increment a ref only — NO socket, NO re-render. Safe to call from a
     // jittery per-frame hover or directly as a DOM handler (event arg = tap).
@@ -110,5 +120,11 @@ export function useRoom(options: UseRoomOptions = {}) {
     socketRef.current?.send(JSON.stringify({ type: "reset" }));
   }, []);
 
-  return { state, broadcastSlide, broadcastTap, broadcastReset };
+  return {
+    state,
+    broadcastSlide,
+    broadcastActiveIndex,
+    broadcastTap,
+    broadcastReset,
+  };
 }

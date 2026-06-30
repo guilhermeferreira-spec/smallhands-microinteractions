@@ -7,12 +7,17 @@ import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
 import { HeroCanvas } from "@/components/HeroCanvas";
 import { TitleHTMLLayer } from "@/components/slides/Slide00Title";
+import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
 
 const TOTAL = SLIDES.length;
+// Index of the anatomy slide in the SLIDES array. If you reorder slides,
+// update this one number.
+const SLIDE02_INDEX = 2;
 
 export default function PresenterPage() {
   const [slide, setSlide] = useState(0);
-  const { state, broadcastSlide, broadcastTap, broadcastReset } = useRoom();
+  const { state, broadcastSlide, broadcastActiveIndex, broadcastTap, broadcastReset } =
+    useRoom();
 
   const htmlElRef = useRef<HTMLDivElement | null>(null);
 
@@ -41,6 +46,7 @@ export default function PresenterPage() {
   }, [next, prev]);
 
   const isTitle = slide === 0;
+  const isSlide02 = slide === SLIDE02_INDEX;
   const SlideComponent = SLIDES[slide];
 
   return (
@@ -60,6 +66,15 @@ export default function PresenterPage() {
             elRef={htmlElRef}
             interactive={false}
             onTap={() => {}}
+          />
+        ) : isSlide02 ? (
+          // Presenter controls the highlight; clicking a word broadcasts it.
+          <Slide02WhatIs
+            interactive={false}
+            onTap={() => {}}
+            isPresenter
+            activeIndex={state.activeIndex}
+            onSelect={broadcastActiveIndex}
           />
         ) : (
           <SlideComponent interactive={false} onTap={() => {}} />
