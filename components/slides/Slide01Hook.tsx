@@ -30,7 +30,7 @@ export default function Slide01Hook({ interactive, onTap }: SlideProps) {
   if (interactive && coinSound.current === null && typeof window !== "undefined") {
     coinSound.current = new Howl({
       src: ["/smallhands/coin.wav"],
-      volume: 0.05,
+      volume: 0.03,
     });
   }
 
@@ -102,8 +102,8 @@ if (s) {
       </div>
 
       {/* The hook line */}
-      <h2 className="px-8 text-center font-title text-2xl leading-[1.5] tracking-tight">
-        <span className="text-white/70">What&apos;s the last thing you <span className="text-white">tapped</span> just <br/>
+      <h2 className="px-8 text-center font-title text-2xl leading-[1.5] tracking-tight max-w-[930px]">
+        <span className="text-white/70">What&apos;s the last thing you <span className="text-white">tapped</span> just
         to watch it happen  <span className="text-white">again?</span></span>
       </h2>
 
