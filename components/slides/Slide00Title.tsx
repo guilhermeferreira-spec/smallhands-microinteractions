@@ -699,26 +699,23 @@ export function TitleHTMLLayer({ elRef, interactive, onTap }: {
       }}
     >
       <div className="flex flex-col items-center justify-center w-full h-full gap-76 -translate-y-4">
-        <span className="text-[#F1D345] font-medium text-[56px] tracking-tight">
+        <span className="text-[#F1D345] font-medium text-[56px] font-title  tracking-tighter">
           smallhands
         </span>
-        <span className="text-white text-4xl flex flex-col gap-2">
-          micro interactions{" "}
-          <span className="bg-white rounded-2xl text-black font-bold uppercase text-2xl flex py-2 px-1 items-center justify-center">
-            edition
-          </span>
+        <span className="text-white text-5xl tracking-wide flex flex-col gap-2 font-body">
+          micro interactions
         </span>
       </div>
 
-      <div className="absolute top-27 left-1/4 -translate-x-1/2 w-64 h-64">
+      <div className="absolute top-27 left-1/4 -translate-x-1/2 w-64 h-64 animation-bounce">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/smallhands/tryme.svg" alt="try me" className="absolute inset-0 w-full h-full" />
+        <img src="/smallhands/tryme.svg" alt="try me" className=" absolute inset-0 w-full h-full" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/smallhands/star.svg"
           alt="star"
-          className="absolute inset-0 w-full h-full opacity-25"
-          style={{ animation: "spin 8s linear infinite" }}
+          className="absolute inset-0 w-full h-full opacity-25 animate-spin"
+          style={{ animationDuration: "8s" }}
         />
       </div>
 

@@ -15,7 +15,7 @@ export default function Slide03Spring({ interactive, onTap }: SlideProps) {
 
   return (
     <div className="flex flex-col items-center justify-center w-full h-full text-white gap-10 px-16">
-      <h2 className="text-3xl font-light text-white/80">Easing is the message.</h2>
+      <h2 className="font-title text-xl leading-[1.6] text-white/80 text-center">Easing is the message.</h2>
 
       <div className="flex gap-16 items-end">
         {/* Linear */}
@@ -32,13 +32,13 @@ export default function Slide03Spring({ interactive, onTap }: SlideProps) {
           {interactive && (
             <button
               onPointerDown={() => tap("linear")}
-              className="text-xs text-white/40 font-mono border border-white/10 px-4 py-2 rounded"
+              className="font-title text-[0.625rem] uppercase tracking-[0.08em] text-white/40 border border-white/10 px-4 py-2 rounded"
             >
               linear
             </button>
           )}
           {!interactive && (
-            <p className="text-xs text-white/30 font-mono">linear</p>
+            <p className="font-title text-[0.625rem] uppercase tracking-[0.08em] text-white/30">linear</p>
           )}
         </div>
 
@@ -56,19 +56,19 @@ export default function Slide03Spring({ interactive, onTap }: SlideProps) {
           {interactive && (
             <button
               onPointerDown={() => tap("spring")}
-              className="text-xs text-white font-mono border border-white/40 px-4 py-2 rounded"
+              className="font-title text-[0.625rem] uppercase tracking-[0.08em] text-white border border-white/40 px-4 py-2 rounded"
             >
               spring
             </button>
           )}
           {!interactive && (
-            <p className="text-xs text-white/60 font-mono">spring</p>
+            <p className="font-title text-[0.625rem] uppercase tracking-[0.08em] text-white/60">spring</p>
           )}
         </div>
       </div>
 
       {interactive && (
-        <p className="text-xs text-white/20 font-mono">hold each button, feel the difference</p>
+        <p className="font-body text-lg text-white/30">hold each button, feel the difference</p>
       )}
     </div>
   );
