@@ -48,7 +48,7 @@ export default function Slide02WhatIs({
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center bg-[#000] select-none">
-      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-8 font-title text-4xl md:text-5xl">
+      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-8 font-title text-2xl">
         {PARTS.map((part, i) => {
           const isActive = i === activeIndex;
           const dimmed = activeIndex !== -1 && !isActive;
