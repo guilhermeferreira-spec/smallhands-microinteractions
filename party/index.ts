@@ -58,8 +58,36 @@ export class SmallHandsParty extends Server<Env> {
   currentActiveIndex = -1;
   tapTotal = 0;
   hoverTotal = 0;
-  // Rolling window: interaction timestamps from the last 3 seconds.
+  // Rolling window: interaction timestamps from the last 3 seconds. Ephemeral
+  // (not persisted) — a 3s window is meaningless to restore after a wake.
   recentTaps: number[] = [];
+
+  // Load durable state on cold start / after the DO wakes from eviction, so an
+  // idle room doesn't snap everyone back to slide 0.
+  async onStart() {
+    const s = await this.ctx.storage.get<{
+      slide: number;
+      activeIndex: number;
+      tapTotal: number;
+      hoverTotal: number;
+    }>("state");
+    if (s) {
+      this.currentSlide = s.slide ?? 0;
+      this.currentActiveIndex = s.activeIndex ?? -1;
+      this.tapTotal = s.tapTotal ?? 0;
+      this.hoverTotal = s.hoverTotal ?? 0;
+    }
+  }
+
+  // Persist durable state (fire-and-forget; storage writes are transactional).
+  private save() {
+    void this.ctx.storage.put("state", {
+      slide: this.currentSlide,
+      activeIndex: this.currentActiveIndex,
+      tapTotal: this.tapTotal,
+      hoverTotal: this.hoverTotal,
+    });
+  }
 
   onConnect(connection: Connection) {
     // Catch late joiners up to the current state.
@@ -79,12 +107,14 @@ export class SmallHandsParty extends Server<Env> {
 
     if (msg.type === "slide") {
       this.currentSlide = msg.slide;
+      this.save();
       // Broadcast to all, including the sender.
       this.broadcast(JSON.stringify(msg));
     }
 
     if (msg.type === "activeIndex") {
       this.currentActiveIndex = msg.index;
+      this.save();
       // Broadcast to all, including the sender.
       this.broadcast(JSON.stringify(msg));
     }
@@ -93,6 +123,7 @@ export class SmallHandsParty extends Server<Env> {
       this.tapTotal = 0;
       this.hoverTotal = 0;
       this.recentTaps = [];
+      this.save();
       const aggregate: TapAggregateMessage = {
         type: "tap_aggregate",
         count: 0,
@@ -108,6 +139,7 @@ export class SmallHandsParty extends Server<Env> {
       const hovers = Math.max(0, msg.hovers | 0);
       this.tapTotal += taps;
       this.hoverTotal += hovers;
+      this.save();
 
       const now = Date.now();
       const added = taps + hovers;
