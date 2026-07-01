@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback, type MutableRefObject } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
 import { HeroCanvas } from "@/components/HeroCanvas";
-import { TitleHTMLLayer } from "@/components/slides/Slide00Title";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
 
 const TOTAL = SLIDES.length;
@@ -18,8 +17,6 @@ export default function PresenterPage() {
   const [slide, setSlide] = useState(0);
   const { state, broadcastSlide, broadcastActiveIndex, broadcastTap, broadcastReset } =
     useRoom();
-
-  const htmlElRef = useRef<HTMLDivElement | null>(null);
 
   const resetInteractions = useCallback(() => {
     if (window.confirm("Reset the interaction counter to zero?")) {
@@ -53,21 +50,11 @@ export default function PresenterPage() {
     <div className="relative w-screen h-screen bg-black overflow-hidden">
       {/* Persistent Canvas — mounts ONCE, never unmounts. Memoized so
           interaction-count re-renders never touch the 3D scene. */}
-      <HeroCanvas
-        active={isTitle}
-        htmlElRef={htmlElRef as MutableRefObject<HTMLElement | null>}
-        onInteraction={broadcastTap}
-      />
+      <HeroCanvas active={isTitle} onInteraction={broadcastTap} />
 
       {/* Slide overlay — plain DOM, above canvas */}
       <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }}>
-        {isTitle ? (
-          <TitleHTMLLayer
-            elRef={htmlElRef}
-            interactive={false}
-            onTap={() => {}}
-          />
-        ) : isSlide02 ? (
+        {isTitle ? null : isSlide02 ? (
           // Presenter controls the highlight; clicking a word broadcasts it.
           <Slide02WhatIs
             interactive={false}

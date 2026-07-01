@@ -12,16 +12,89 @@
  *                           (unused in production; pages use the two exports above)
  */
 
-import { useRef, useEffect, useState, type MutableRefObject, type RefObject } from "react";
+import { useRef, useEffect, useState, type MutableRefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { HTMLTexture } from "three";
+import { Text as TroikaText } from "troika-three-text";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { useChiiScene } from "./smallhands/ChiiModel.jsx";
 import smallhandsPreset from "./smallhands/smallhands-crt-preset.json";
 import type { SlideProps, InteractionKind } from "./types";
+
+// ── Hero text layer (three.js-native, no html-in-canvas) ─────────────────────
+// Builds the wordmark (troika text) + try-me/star (textured planes) into the
+// given scene, in pixel-space coordinates centred on the origin. Returns the
+// star (for spin), a responsive layout(W,H), and dispose().
+const PRESS_START = "/fonts/PressStart2P-Regular.ttf";
+const VT323 = "/fonts/VT323-Regular.ttf";
+
+function createHeroLayer(scene: THREE.Scene) {
+  const title = new TroikaText();
+  title.text = "smallhands";
+  title.font = PRESS_START;
+  title.color = 0xf1d345;
+  title.anchorX = "center";
+  title.anchorY = "middle";
+  title.letterSpacing = -0.05;
+
+  const subtitle = new TroikaText();
+  subtitle.text = "micro interactions";
+  subtitle.font = VT323;
+  subtitle.color = 0xffffff;
+  subtitle.anchorX = "center";
+  subtitle.anchorY = "middle";
+  subtitle.letterSpacing = 0.02;
+
+  const loader = new THREE.TextureLoader();
+  const mkPlane = (url: string, opacity: number) => {
+    const tex = loader.load(url);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity }),
+    );
+    return mesh;
+  };
+  const tryme = mkPlane("/smallhands/tryme.svg", 1);
+  const star = mkPlane("/smallhands/star.svg", 0.25);
+
+  scene.add(title, subtitle, tryme, star);
+
+  const layout = (W: number, H: number) => {
+    const scale = Math.min(Math.max(W / 1280, 0.5), 1.25);
+
+    title.fontSize = 56 * scale;
+    title.position.set(0, 150 * scale, 0);
+    title.sync();
+
+    subtitle.fontSize = 48 * scale;
+    subtitle.position.set(0, -150 * scale, 0);
+    subtitle.sync();
+
+    // Upper-left cluster (mirrors the old top-27 / left-1/4 placement).
+    const box = 256 * scale;
+    const cx = -W / 4;
+    const cy = H / 2 - 108 * scale - box / 2;
+    tryme.scale.set(box, box, 1);
+    tryme.position.set(cx, cy, 0);
+    star.scale.set(box, box, 1);
+    star.position.set(cx, cy, 0);
+  };
+
+  const dispose = () => {
+    title.dispose();
+    subtitle.dispose();
+    [tryme, star].forEach((m) => {
+      m.geometry.dispose();
+      (m.material as THREE.MeshBasicMaterial).map?.dispose();
+      (m.material as THREE.Material).dispose();
+    });
+  };
+
+  return { title, subtitle, tryme, star, layout, dispose };
+}
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -398,11 +471,10 @@ function ChiiSceneManager({ trailConfig, modelSceneRef, modelCameraRef, lightRef
 
 // ── SmallhandsCRT ─────────────────────────────────────────────────────────────
 
-function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }: {
+function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef }: {
   trailConfig: typeof DEFAULTS;
   modelSceneRef: MutableRefObject<THREE.Scene | null>;
   modelCameraRef: MutableRefObject<THREE.Camera | null>;
-  htmlElRef: MutableRefObject<HTMLElement | null>;
 }) {
   const { gl, size } = useThree();
   const threeRef = useRef<ReturnType<typeof buildPipeline> | null>(null);
@@ -438,23 +510,12 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
 
     const htmlTarget = new THREE.WebGLRenderTarget(W, H, hdrOpts);
     const htmlScene = new THREE.Scene();
-    const htmlCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    const htmlMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: null as unknown as THREE.Texture }));
-    htmlScene.add(htmlMesh);
-
-    let htmlTex: InstanceType<typeof HTMLTexture> | null = null;
-    setTimeout(() => {
-      const el = htmlElRef.current;
-      if (!el) return;
-      htmlTex = new HTMLTexture(el);
-      (htmlTex as THREE.Texture).minFilter = THREE.LinearFilter;
-      (htmlTex as THREE.Texture).magFilter = THREE.LinearFilter;
-      if (threeRef.current) {
-        threeRef.current.htmlMesh.material.map = htmlTex as THREE.Texture;
-        threeRef.current.htmlMesh.material.needsUpdate = true;
-        threeRef.current.htmlTex = htmlTex;
-      }
-    }, 0);
+    // Pixel-space ortho camera: text sizes/positions are in px (responsive).
+    const htmlCam = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, -1, 1);
+    htmlCam.position.z = 1;
+    // Native three text + SVG planes replace the old HTMLTexture'd quad.
+    const heroLayer = createHeroLayer(htmlScene);
+    heroLayer.layout(W, H);
 
     const alphaOverMat = new THREE.ShaderMaterial({
       uniforms: { tBottom: { value: null }, tTop: { value: null } },
@@ -521,8 +582,7 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
     bloomCompositePass.uniforms.uBloomTint.value.set(cfg.bloomTintR, cfg.bloomTintG, cfg.bloomTintB);
 
     threeRef.current = {
-      htmlTex: null,
-      htmlTarget, htmlScene, htmlCam, htmlMesh,
+      htmlTarget, htmlScene, htmlCam, heroLayer,
       alphaOverMat, modelTarget, modelBloomThresh, modelBloomH, modelBloomV,
       compositeTargetA, compositeTargetB, mergedBloomA, mergedBloomB,
       blurTarget, blurComposer, mainComposer,
@@ -533,7 +593,7 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
     };
 
     return () => {
-      (threeRef.current?.htmlTex as { dispose?: () => void } | null)?.dispose?.();
+      heroLayer.dispose();
       htmlTarget.dispose(); modelTarget.dispose();
       modelBloomThresh.dispose(); modelBloomH.dispose(); modelBloomV.dispose();
       compositeTargetA.dispose(); compositeTargetB.dispose();
@@ -576,6 +636,13 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
     t.crtGhostPass.uniforms.uResolution.value.set(W, H);
     t.blurHMat.uniforms.uResolution.value.set(bW, bH);
     t.blurVMat.uniforms.uResolution.value.set(bW, bH);
+    // Text layer: resize the pixel-space camera + re-flow the layout.
+    t.htmlCam.left = -W / 2;
+    t.htmlCam.right = W / 2;
+    t.htmlCam.top = H / 2;
+    t.htmlCam.bottom = -H / 2;
+    t.htmlCam.updateProjectionMatrix();
+    t.heroLayer.layout(W, H);
   }, [size]);
 
   useFrame((_, delta) => {
@@ -588,8 +655,9 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
 
     const r = gl as unknown as THREE.WebGLRenderer;
 
+    t.heroLayer.star.rotation.z = -(crtPass.uniforms.uTime.value / 8) * Math.PI * 2;
     r.setRenderTarget(htmlTarget);
-    r.setClearColor(0x000000, 1);
+    r.setClearColor(0x111111, 1);
     r.clear(true, true, false);
     r.render(htmlScene, htmlCam);
 
@@ -642,11 +710,10 @@ function SmallhandsCRT({ trailConfig, modelSceneRef, modelCameraRef, htmlElRef }
 
 // needed for TypeScript to know the shape of threeRef
 type PipelineRefs = {
-  htmlTex: unknown;
   htmlTarget: THREE.WebGLRenderTarget;
   htmlScene: THREE.Scene;
   htmlCam: THREE.OrthographicCamera;
-  htmlMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  heroLayer: ReturnType<typeof createHeroLayer>;
   alphaOverMat: THREE.ShaderMaterial;
   modelTarget: THREE.WebGLRenderTarget;
   modelBloomThresh: THREE.WebGLRenderTarget;
@@ -677,56 +744,11 @@ type PipelineRefs = {
 };
 declare function buildPipeline(): PipelineRefs;
 
-// ── TitleHTMLLayer — plain DOM, lives OUTSIDE Canvas ─────────────────────────
-// Positioned over the Canvas via absolute/fixed. Passed as elRef to CRT pipeline.
-
-export function TitleHTMLLayer({ elRef, interactive, onTap }: {
-  elRef: RefObject<HTMLDivElement | null>;
-  interactive: boolean;
-  onTap: (kind?: InteractionKind) => void;
-}) {
-  return (
-    <div
-      ref={elRef}
-      style={{
-        position: "absolute",
-        left: 0, top: 0,
-        width: "100vw", height: "100vh",
-        pointerEvents: "none",
-        overflow: "hidden",
-        background: "#111",
-        zIndex: 0,
-      }}
-    >
-      <div className="flex flex-col items-center justify-center w-full h-full gap-76 -translate-y-4">
-        <span className="text-[#F1D345] font-medium text-[56px] font-title  tracking-tighter">
-          smallhands
-        </span>
-        <span className="text-white text-5xl tracking-wide flex flex-col gap-2 font-body">
-          micro interactions
-        </span>
-      </div>
-
-      <div className="absolute top-27 left-1/4 -translate-x-1/2 w-64 h-64 animation-bounce">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/smallhands/tryme.svg" alt="try me" className=" absolute inset-0 w-full h-full" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/smallhands/star.svg"
-          alt="star"
-          className="absolute inset-0 w-full h-full opacity-25 animate-spin"
-          style={{ animationDuration: "8s" }}
-        />
-      </div>
-
-    </div>
-  );
-}
-
 // ── TitleSceneContents — r3f children, rendered inside the hoisted Canvas ────
+// The hero text now lives entirely in the WebGL scene (see createHeroLayer),
+// so there is no DOM overlay / HTMLTexture anymore.
 
-export function TitleSceneContents({ htmlElRef, onInteraction }: {
-  htmlElRef: MutableRefObject<HTMLElement | null>;
+export function TitleSceneContents({ onInteraction }: {
   onInteraction?: (kind?: InteractionKind) => void;
 }) {
   const [config] = useState(loadPreset);
@@ -747,7 +769,6 @@ export function TitleSceneContents({ htmlElRef, onInteraction }: {
         trailConfig={config}
         modelSceneRef={modelSceneRef}
         modelCameraRef={modelCameraRef}
-        htmlElRef={htmlElRef}
       />
     </>
   );

@@ -20,7 +20,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "three": "^0.185.0",
-    "three-custom-shader-material": "^6.4.0"
+    "three-custom-shader-material": "^6.4.0",
+    "troika-three-text": "^0.52.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260626.1",
