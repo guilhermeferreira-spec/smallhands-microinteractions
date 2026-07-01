@@ -60,7 +60,7 @@ if (s) {
   }, [interactive, onTap]);
 
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-center bg-[#000] select-none">
+    <div className="relative flex h-full w-full flex-col items-center justify-center bg-[#000]">
       {/* Block + coin stage */}
       <div className="relative mb-8 flex items-center justify-center">
         {coins.map((coin) => (

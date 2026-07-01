@@ -47,7 +47,7 @@ export default function Slide02WhatIs({
   const clickable = isPresenter && typeof onSelect === "function";
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center bg-[#000] select-none">
+    <div className="flex h-full w-full flex-col items-center justify-center bg-[#000]">
       <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 px-8 font-title text-2xl">
         {PARTS.map((part, i) => {
           const isActive = i === activeIndex;
