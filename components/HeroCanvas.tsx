@@ -1,13 +1,12 @@
 "use client";
 
-import { memo, type MutableRefObject } from "react";
+import { memo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { TitleSceneContents } from "@/components/slides/Slide00Title";
 import type { InteractionKind } from "@/components/slides/types";
 
 interface HeroCanvasProps {
   active: boolean; // render the title scene (slide 0)
-  htmlElRef: MutableRefObject<HTMLElement | null>;
   onInteraction?: (kind?: InteractionKind) => void;
 }
 
@@ -16,7 +15,7 @@ interface HeroCanvasProps {
 // re-renders (active flips only on slide change, the others are stable refs/
 // callbacks), so React skips this entirely — the 3D scene is never touched by
 // counting. This is the r3f-recommended isolation pattern.
-function HeroCanvasImpl({ active, htmlElRef, onInteraction }: HeroCanvasProps) {
+function HeroCanvasImpl({ active, onInteraction }: HeroCanvasProps) {
   return (
     <Canvas
       style={{
@@ -31,9 +30,7 @@ function HeroCanvasImpl({ active, htmlElRef, onInteraction }: HeroCanvasProps) {
       gl={{ antialias: true, alpha: false }}
       frameloop="always"
     >
-      {active && (
-        <TitleSceneContents htmlElRef={htmlElRef} onInteraction={onInteraction} />
-      )}
+      {active && <TitleSceneContents onInteraction={onInteraction} />}
     </Canvas>
   );
 }
