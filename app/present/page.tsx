@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
@@ -15,8 +15,19 @@ const SLIDE02_INDEX = 2;
 
 export default function PresenterPage() {
   const [slide, setSlide] = useState(0);
+  // Mirror of `slide` for the nav callbacks (avoids stale closures) and so we
+  // can adopt the server's persisted slide without re-broadcasting it.
+  const slideRef = useRef(0);
   const { state, broadcastSlide, broadcastActiveIndex, broadcastTap, broadcastReset } =
-    useRoom();
+    useRoom({
+      // On (re)connect the server sends the persisted slide via `init`. Adopt
+      // it WITHOUT broadcasting, so a presenter reload lands on the saved slide
+      // instead of clobbering the room back to the hero.
+      onSlide: (s) => {
+        slideRef.current = s;
+        setSlide(s);
+      },
+    });
 
   const resetInteractions = useCallback(() => {
     if (window.confirm("Reset the interaction counter to zero?")) {
@@ -24,13 +35,18 @@ export default function PresenterPage() {
     }
   }, [broadcastReset]);
 
-  // Sync local slide → room on change
-  useEffect(() => {
-    broadcastSlide(slide);
-  }, [slide, broadcastSlide]);
-
-  const next = useCallback(() => setSlide((s) => Math.min(s + 1, TOTAL - 1)), []);
-  const prev = useCallback(() => setSlide((s) => Math.max(s - 1, 0)), []);
+  // Navigation broadcasts only on real user intent (never on mount/adopt).
+  const go = useCallback(
+    (n: number) => {
+      const c = Math.min(Math.max(n, 0), TOTAL - 1);
+      slideRef.current = c;
+      setSlide(c);
+      broadcastSlide(c);
+    },
+    [broadcastSlide],
+  );
+  const next = useCallback(() => go(slideRef.current + 1), [go]);
+  const prev = useCallback(() => go(slideRef.current - 1), [go]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
