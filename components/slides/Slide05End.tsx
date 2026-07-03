@@ -1,28 +1,21 @@
-"use client";
+import type { SlideProps } from "./types";
 
-import { SlideProps } from "./types";
+/**
+ * Slide05End — Close. Just the question, large, centered. No interaction —
+ * you ask, the room answers. Biggest whitespace of the deck, mirrors the
+ * hero's calm.
+ *
+ * DRAFT COPY — swap CLOSING_QUESTION for your actual closing line.
+ */
 
-export default function Slide05End({ interactive, onTap }: SlideProps) {
+const CLOSING_QUESTION = "What's the smallest interaction you could improve on Monday?";
+
+export default function Slide05End(_props: SlideProps) {
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full text-white gap-8 px-16">
-      <h2 className="text-4xl font-thin tracking-widest text-white/80">
-        小さな手
+    <div className="flex h-full w-full items-center justify-center bg-[#000] px-24">
+      <h2 className="max-w-4xl text-center font-title text-3xl leading-[1.6] text-white md:text-5xl">
+        {CLOSING_QUESTION}
       </h2>
-      <p className="text-sm text-white/30 font-mono">
-        The details are not the details.
-      </p>
-      <p className="text-xs text-white/20 font-mono mt-4">
-        They make the design.
-      </p>
-      {interactive && (
-        <button
-          onClick={() => onTap("tap")}
-          className="mt-8 text-xs text-white/20 font-mono border border-white/10 px-6 py-3 rounded-full
-            hover:text-white/50 hover:border-white/30 transition-all duration-500"
-        >
-          one last tap
-        </button>
-      )}
     </div>
   );
 }

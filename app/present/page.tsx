@@ -6,6 +6,7 @@ import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
 import { HeroCanvas } from "@/components/HeroCanvas";
+import { TelusLogo } from "@/components/TelusLogo";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
 
 const TOTAL = SLIDES.length;
@@ -123,6 +124,8 @@ export default function PresenterPage() {
           </svg>
         </button>
       </div>
+
+      <TelusLogo hidden={isTitle} />
     </div>
   );
 }

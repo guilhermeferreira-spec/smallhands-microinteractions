@@ -27,3 +27,49 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Whiplash slide: confetti (warm) -> hard cut -> dollar stamp (cold) */
+@keyframes whiplash-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+@keyframes whiplash-shake {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-7px, 3px); }
+  40% { transform: translate(6px, -4px); }
+  60% { transform: translate(-5px, 3px); }
+  80% { transform: translate(3px, -2px); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes whiplash-stamp {
+  0% { transform: scale(1.6); opacity: 0; }
+  60% { transform: scale(0.94); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes whiplash-rise {
+  0% { transform: translateY(18px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+/* Raised CTA button — rest / hover / press are distinct states, not a single
+   animated value, so hover reads as "lifted" and press reads as "pushed in". */
+.whiplash-btn {
+  transform: translateY(0);
+  box-shadow: 0 8px 0 0 rgba(255, 255, 255, 0.25), 0 14px 20px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+.whiplash-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 13px 0 0 rgba(255, 255, 255, 0.25), 0 22px 28px rgba(0, 0, 0, 0.5);
+}
+.whiplash-btn:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 0 rgba(255, 255, 255, 0.25), 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: none;
+}
+
+@keyframes badge-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); transform: scale(1); }
+  60% { box-shadow: 0 0 0 13px rgba(239, 68, 68, 0); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+}

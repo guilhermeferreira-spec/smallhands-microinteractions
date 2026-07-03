@@ -5,6 +5,7 @@ import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { InteractionTally } from "@/components/InteractionTally";
 import { HeroCanvas } from "@/components/HeroCanvas";
+import { TelusLogo } from "@/components/TelusLogo";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
 
 // Index of the anatomy slide in the SLIDES array. Must match the presenter page.
@@ -46,6 +47,8 @@ export default function AudiencePage() {
       {isLast && (
         <InteractionTally tapTotal={state.tapTotal} hoverTotal={state.hoverTotal} />
       )}
+
+      <TelusLogo hidden={isTitle} />
     </div>
   );
 }
