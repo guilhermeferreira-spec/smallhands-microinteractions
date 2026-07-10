@@ -5,25 +5,32 @@ interface InteractionTallyProps {
   hoverTotal: number;
 }
 
-// End-of-talk reveal: the total number of interactions the room produced,
-// with a taps / hovers breakdown. Rendered as an overlay on the final slide.
+// End-of-talk payoff: the room's total interactions as an arcade high score.
+// Pixel-font number front and center, taps/hovers as small score pills.
 export function InteractionTally({ tapTotal, hoverTotal }: InteractionTallyProps) {
   const total = tapTotal + hoverTotal;
 
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 bottom-[14vh] flex flex-col items-center gap-3 text-white"
+      className="pointer-events-none absolute inset-x-0 bottom-[10vh] flex flex-col items-center gap-5"
       style={{ zIndex: 20 }}
     >
-      <span className="text-xs uppercase tracking-[0.3em] text-white/40 font-mono">
-        interactions today
+      <span className="font-body text-xl uppercase tracking-[0.3em] text-white/40">
+        interactions in this room
       </span>
-      <span className="text-7xl font-thin tabular-nums leading-none">
+
+      <span className="font-title text-6xl leading-none text-[#F1D345] tabular-nums md:text-8xl">
         {total.toLocaleString()}
       </span>
-      <span className="text-sm text-white/40 font-mono tabular-nums">
-        {tapTotal.toLocaleString()} taps · {hoverTotal.toLocaleString()} hovers
-      </span>
+
+      <div className="flex items-center gap-3">
+        <span className="rounded-full border border-white/15 px-4 py-1.5 font-body text-lg text-white/55 tabular-nums">
+          {tapTotal.toLocaleString()} taps
+        </span>
+        <span className="rounded-full border border-white/15 px-4 py-1.5 font-body text-lg text-white/55 tabular-nums">
+          {hoverTotal.toLocaleString()} hovers
+        </span>
+      </div>
     </div>
   );
 }

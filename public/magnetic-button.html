@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>magnetic button</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  main {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #btn {
+    /* the spring loop drives --tx/--ty; CSS never animates position */
+    transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
+    will-change: transform;
+    padding: 22px 44px;
+    border: 0;
+    border-radius: 9999px;
+    background: #fff;
+    color: #000;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 12px 32px rgba(255, 255, 255, 0.12);
+  }
+  #btn span {
+    display: inline-block;
+    /* label pop on snap — overshoot bezier so the scale itself feels springy */
+    transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #btn.snapped span { transform: scale(1.08); }
+  #btn:active span { transform: scale(0.94); }
+</style>
+</head>
+<body>
+<main>
+  <button id="btn"><span>hold me closer</span></button>
+</main>
+
+<script>
+// ── Tuning ────────────────────────────────────────────────────────────────
+// Zones are measured from the button's SURFACE (capsule/pill outline), not
+// its center — so the field wraps the button's actual shape evenly.
+const REACTION_DIST = 150; // px from the surface → field starts (barely)
+const SNAP_DIST     = 26;  // px from the surface → locks onto the pointer
+
+// Realistic magnet: force ~ 1/d². EPS keeps it finite at the surface;
+// raise FIELD_POWER for an even later, harder ramp.
+const MAX_PULL    = 0.5;  // lean cap (fraction of cursor offset)
+const FIELD_POWER = 2.0;  // inverse-square = 2.0 (3.0 ≈ neodymium drama)
+const FIELD_EPS   = 0.18; // softening — lower = more violent near the surface
+
+// Springs — [stiffness, damping]. Critical damping ≈ 2*sqrt(stiffness).
+const SPRING_MAGNET = [190, 26];  // slow, heavy drift while in the field
+const SPRING_SNAP   = [1300, 44]; // the lock-on: instant, hard, slight overshoot
+const SPRING_RETURN = [230, 15];  // back to center: bouncy follow-through
+
+const SNAP_KICK = 12; // velocity injected the frame it snaps (the "grab")
+
+// ── State ─────────────────────────────────────────────────────────────────
+const btn = document.getElementById("btn");
+let cx = 0, cy = 0;          // button resting center (viewport px)
+let halfLen = 0, capR = 0;   // capsule: half segment length + cap radius
+let mx = -1e4, my = -1e4;    // cursor
+let x = 0, y = 0, vx = 0, vy = 0; // spring position + velocity (offset from rest)
+let snapped = false;
+let cursorIn = false;
+
+function measure() {
+  // measure at rest: subtract current offset so the center stays stable
+  const r = btn.getBoundingClientRect();
+  cx = r.left + r.width / 2 - x;
+  cy = r.top + r.height / 2 - y;
+  capR = r.height / 2;
+  halfLen = Math.max(0, r.width / 2 - capR); // pill = segment + round caps
+}
+addEventListener("resize", measure);
+
+// Signed distance from a point to the pill's surface (0 = touching).
+// Distance to the horizontal core segment, minus the cap radius.
+function surfaceDist(px, py) {
+  const qx = Math.max(Math.abs(px - cx) - halfLen, 0);
+  const qy = py - cy;
+  return Math.max(Math.hypot(qx, qy) - capR, 0);
+}
+
+function unsnap() {
+  if (!snapped) return;
+  snapped = false;
+  btn.classList.remove("snapped");
+}
+
+addEventListener("mousemove", (e) => {
+  mx = e.clientX; my = e.clientY;
+  cursorIn = true;
+});
+document.documentElement.addEventListener("mouseleave", () => {
+  cursorIn = false;
+});
+
+// ── Spring loop ───────────────────────────────────────────────────────────
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 1 / 30);
+  last = now;
+
+  const dx = mx - cx, dy = my - cy;
+  const d = surfaceDist(mx, my); // distance from the pill surface, not center
+
+  let tx = 0, ty = 0, k, c;
+
+  if (cursorIn && d <= SNAP_DIST) {
+    // SNAP: lock onto the pointer
+    tx = dx; ty = dy;
+    [k, c] = SPRING_SNAP;
+    if (!snapped) {
+      // the payoff: a velocity kick guarantees a visible overshoot past the
+      // pointer before the stiff spring reels it back
+      vx += (tx - x) * SNAP_KICK;
+      vy += (ty - y) * SNAP_KICK;
+      snapped = true;
+      btn.classList.add("snapped");
+    }
+  } else if (cursorIn && d <= REACTION_DIST) {
+    // MAGNET: inverse-square field. u = 0 at the surface, 1 at the field edge.
+    // Far out this is near-zero (real magnets are invisible until they aren't);
+    // close in it blows up toward MAX_PULL.
+    const u = (d - SNAP_DIST) / (REACTION_DIST - SNAP_DIST);
+    const field = 1 / Math.pow(u + FIELD_EPS, FIELD_POWER);
+    const fieldMax = 1 / Math.pow(FIELD_EPS, FIELD_POWER);
+    const pull = MAX_PULL * (field / fieldMax);
+    tx = dx * pull; ty = dy * pull;
+    [k, c] = SPRING_MAGNET;
+    unsnap();
+  } else {
+    // RETURN: spring home with bouncy follow-through
+    [k, c] = SPRING_RETURN;
+    unsnap();
+  }
+
+  // damped spring integration
+  vx += ((tx - x) * k - vx * c) * dt;
+  vy += ((ty - y) * k - vy * c) * dt;
+  x += vx * dt;
+  y += vy * dt;
+
+  btn.style.setProperty("--tx", x.toFixed(2) + "px");
+  btn.style.setProperty("--ty", y.toFixed(2) + "px");
+
+  requestAnimationFrame(frame);
+}
+
+measure();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
