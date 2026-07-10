@@ -72,10 +72,13 @@ body {
   0% { transform: translateY(70px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
-/* Irregular dips mimic a real flickering LED, not a smooth pulse. */
-@keyframes led-flicker {
-  0%, 19%, 21%, 23%, 65%, 67%, 100% { opacity: 1; }
-  20%, 22%, 66% { opacity: 0.35; }
+
+/* clawd — subtle squash & stretch along the travel axis while surfacing */
+@keyframes clawd-squish {
+  0% { transform: scale(0.965, 1.055); }
+  55% { transform: scale(1.04, 0.955); }
+  80% { transform: scale(0.99, 1.015); }
+  100% { transform: scale(1, 1); }
 }
 
 /* Gooey toggle — tiny track bounce on every flip */
