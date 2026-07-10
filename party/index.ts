@@ -124,13 +124,13 @@ export class SmallHandsParty extends Server<Env> {
       this.hoverTotal = 0;
       this.recentTaps = [];
       this.save();
-      const aggregate: TapAggregateMessage = {
-        type: "tap_aggregate",
-        count: 0,
-        total: 0,
-        hoverTotal: 0,
-      };
-      this.broadcast(JSON.stringify(aggregate));
+      // Reset bypasses the throttle (immediate feedback) and cancels any
+      // pending flush so a stale aggregate can't land after the zeroes.
+      if (this.aggTimer) {
+        clearTimeout(this.aggTimer);
+        this.aggTimer = null;
+      }
+      this.sendAggregate();
       return;
     }
 
@@ -146,14 +146,40 @@ export class SmallHandsParty extends Server<Env> {
       for (let i = 0; i < added; i++) this.recentTaps.push(now);
       this.recentTaps = this.recentTaps.filter((t) => now - t < 3000);
 
-      const aggregate: TapAggregateMessage = {
-        type: "tap_aggregate",
-        count: this.recentTaps.length,
-        total: this.tapTotal,
-        hoverTotal: this.hoverTotal,
-      };
-      this.broadcast(JSON.stringify(aggregate));
+      // Throttled broadcast: N clients batching 1x/sec used to mean N
+      // broadcasts/sec fanned out to ALL devices (N² messages, N re-renders/s
+      // per phone). Coalesce to at most one aggregate per second, with a
+      // trailing flush so the last batch is never lost.
+      this.queueAggregate();
     }
+  }
+
+  // ── Aggregate throttle ────────────────────────────────────────────────────
+  lastAggAt = 0;
+  aggTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private queueAggregate() {
+    if (this.aggTimer) return; // a flush is already scheduled
+    const since = Date.now() - this.lastAggAt;
+    if (since >= 1000) {
+      this.sendAggregate();
+    } else {
+      this.aggTimer = setTimeout(() => {
+        this.aggTimer = null;
+        this.sendAggregate();
+      }, 1000 - since);
+    }
+  }
+
+  private sendAggregate() {
+    this.lastAggAt = Date.now();
+    const aggregate: TapAggregateMessage = {
+      type: "tap_aggregate",
+      count: this.recentTaps.filter((t) => Date.now() - t < 3000).length,
+      total: this.tapTotal,
+      hoverTotal: this.hoverTotal,
+    };
+    this.broadcast(JSON.stringify(aggregate));
   }
 }
 

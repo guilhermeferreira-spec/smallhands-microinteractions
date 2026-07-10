@@ -42,7 +42,8 @@ export default function Slide05End({ interactive, onTap }: SlideProps) {
   };
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-[#000] px-16">
+    // pb-[42vh] lifts the block clear of the tally overlay pinned to the bottom
+    <div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-[#000] px-16 pb-[42vh]">
       <h2 className="text-center font-title text-4xl leading-[1.4] text-white md:text-6xl">
         Thank you
       </h2>
