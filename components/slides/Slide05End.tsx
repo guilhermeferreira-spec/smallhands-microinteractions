@@ -1,21 +1,17 @@
 import type { SlideProps } from "./types";
 
 /**
- * Slide05End — Close. Just the question, large, centered. No interaction —
- * you ask, the room answers. Biggest whitespace of the deck, mirrors the
- * hero's calm.
- *
- * DRAFT COPY — swap CLOSING_QUESTION for your actual closing line.
+ * Slide05End — Close. Thank you, nothing else. The InteractionTally overlay
+ * (rendered by the pages on the last slide) carries the payoff number.
  */
-
-const CLOSING_QUESTION = "What's the smallest interaction you could improve on Monday?";
 
 export default function Slide05End(_props: SlideProps) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#000] px-24">
-      <h2 className="max-w-4xl text-center font-title text-3xl leading-[1.6] text-white md:text-5xl">
-        {CLOSING_QUESTION}
+    <div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-[#000] px-16">
+      <h2 className="text-center font-title text-4xl leading-[1.4] text-white md:text-6xl">
+        Thank you
       </h2>
+      <p className="font-body text-2xl text-white/30">小さな手 — smallhands</p>
     </div>
   );
 }

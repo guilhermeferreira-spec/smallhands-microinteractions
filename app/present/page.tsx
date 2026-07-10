@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
-import { HeroCanvas } from "@/components/HeroCanvas";
 import { TelusLogo } from "@/components/TelusLogo";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
+
+// Code-split the 3D hero (three.js + troika + GLB models + preloads inside
+// ChiiModel) into its own chunk so the rest of the app doesn't wait on it.
+const HeroCanvas = dynamic(
+  () => import("@/components/HeroCanvas").then((m) => m.HeroCanvas),
+  { ssr: false },
+);
 
 const TOTAL = SLIDES.length;
 // Index of the anatomy slide in the SLIDES array. If you reorder slides,

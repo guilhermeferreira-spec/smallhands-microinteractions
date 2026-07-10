@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gooey toggle</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  main {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #toggle {
+    /* geometry lives in JS constants too — keep in sync */
+    position: relative;
+    width: 210px;
+    height: 90px;
+    border: 0;
+    border-radius: 9999px;
+    background: #23272f;
+    cursor: pointer;
+    padding: 0;
+    transition: background 260ms ease;
+    outline: none;
+  }
+  #toggle:focus-visible { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25); }
+  #toggle.on { background: #dc2626; }
+
+  /* tiny bounce on every flip */
+  #toggle.kick { animation: track-kick 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes track-kick {
+    0% { transform: scale(1); }
+    35% { transform: scale(0.955); }
+    100% { transform: scale(1); }
+  }
+
+  /* goo layer: blur + alpha-contrast merges the knob and its trailing blob
+     into one liquid shape — the "peeling off the edge" effect */
+  .goo {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    filter: url(#goo);
+    pointer-events: none;
+  }
+  .knob, .trail {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    border-radius: 50%;
+    background: #fff;
+    will-change: transform;
+  }
+  .knob { width: 66px; height: 66px; margin-top: -33px; }
+  .trail { width: 44px; height: 44px; margin-top: -22px; margin-left: 11px; }
+</style>
+</head>
+<body>
+<main>
+  <button id="toggle" role="switch" aria-checked="false" aria-label="gooey toggle">
+    <span class="goo">
+      <span class="trail"></span>
+      <span class="knob"></span>
+    </span>
+  </button>
+
+  <!-- goo filter: blur, then crank alpha contrast — overlapping blobs fuse -->
+  <svg width="0" height="0" aria-hidden="true">
+    <defs>
+      <filter id="goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+        <feColorMatrix in="blur" mode="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -8" result="goo" />
+        <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+      </filter>
+    </defs>
+  </svg>
+</main>
+
+<script>
+// ── Tuning ────────────────────────────────────────────────────────────────
+// Knob spring — bouncy but not floppy. Critical damping ≈ 2*sqrt(stiffness);
+// below it = overshoot + jiggle. Resolves in ~250ms out of the box.
+const STIFFNESS = 420;
+const DAMPING   = 24;
+
+// Liquid stretch — derived from velocity every frame.
+const STRETCH_FACTOR = 0.0016; // stretch per px/s of velocity
+const MAX_STRETCH    = 0.42;   // cap (0.42 → up to 1.42× long, squashed cross-axis)
+const SQUASH_RATIO   = 0.6;    // how much the cross-axis squashes vs the stretch
+
+// Trailing blob — a lazier spring chasing the same target. The goo filter
+// fuses it with the knob, so the lag reads as liquid peeling off the edge.
+const TRAIL_STIFFNESS = 150;
+const TRAIL_DAMPING   = 16;
+
+// Geometry (must match the CSS)
+const TRACK_W = 210, KNOB_D = 66, PAD = 12;
+const TRAVEL = TRACK_W - KNOB_D - PAD * 2; // knob x at "on"
+
+// ── State ─────────────────────────────────────────────────────────────────
+const btn = document.getElementById("toggle");
+const knob = btn.querySelector(".knob");
+const trail = btn.querySelector(".trail");
+
+let on = false;
+let x = 0, vx = 0;   // knob spring
+let tx2 = 0, vx2 = 0; // trail spring
+
+btn.addEventListener("click", () => {
+  on = !on;
+  btn.classList.toggle("on", on);
+  btn.setAttribute("aria-checked", String(on));
+  // retrigger the track bounce
+  btn.classList.remove("kick");
+  void btn.offsetWidth;
+  btn.classList.add("kick");
+});
+
+// ── Spring loop ───────────────────────────────────────────────────────────
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 1 / 30);
+  last = now;
+
+  const target = on ? TRAVEL : 0;
+
+  // knob: stiff spring with overshoot
+  vx += ((target - x) * STIFFNESS - vx * DAMPING) * dt;
+  x += vx * dt;
+
+  // trail: soft spring lagging behind → the goo neck
+  vx2 += ((target - tx2) * TRAIL_STIFFNESS - vx2 * TRAIL_DAMPING) * dt;
+  tx2 += vx2 * dt;
+
+  // liquid stretch from velocity: fast = long + squashed, settles round
+  const s = Math.min(Math.abs(vx) * STRETCH_FACTOR, MAX_STRETCH);
+  const sx = 1 + s;
+  const sy = 1 - s * SQUASH_RATIO;
+
+  knob.style.transform = `translateX(${x.toFixed(2)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+
+  const s2 = Math.min(Math.abs(vx2) * STRETCH_FACTOR * 1.4, MAX_STRETCH);
+  trail.style.transform = `translateX(${tx2.toFixed(2)}px) scale(${(1 + s2).toFixed(3)}, ${(1 - s2 * SQUASH_RATIO).toFixed(3)})`;
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -68,6 +68,23 @@ body {
   transition: none;
 }
 
+@keyframes yokoi-rise {
+  0% { transform: translateY(70px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+/* Irregular dips mimic a real flickering LED, not a smooth pulse. */
+@keyframes led-flicker {
+  0%, 19%, 21%, 23%, 65%, 67%, 100% { opacity: 1; }
+  20%, 22%, 66% { opacity: 0.35; }
+}
+
+/* Gooey toggle — tiny track bounce on every flip */
+@keyframes toggle-kick {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.955); }
+  100% { transform: scale(1); }
+}
+
 @keyframes badge-pulse {
   0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); transform: scale(1); }
   60% { box-shadow: 0 0 0 13px rgba(239, 68, 68, 0); transform: scale(1.08); }
