@@ -1,19 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { InteractionTally } from "@/components/InteractionTally";
 import { TelusLogo } from "@/components/TelusLogo";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
-
-// Code-split the 3D hero (three.js + troika + GLB models + preloads inside
-// ChiiModel) into its own chunk so the rest of the app doesn't wait on it.
-const HeroCanvas = dynamic(
-  () => import("@/components/HeroCanvas").then((m) => m.HeroCanvas),
-  { ssr: false },
-);
 
 // Index of the anatomy slide in the SLIDES array. Must match the presenter page.
 const SLIDE02_INDEX = 2;
@@ -24,20 +16,14 @@ export default function AudiencePage() {
     onSlide: (s) => setSlide(s),
   });
 
-  const isTitle = slide === 0;
   const isSlide02 = slide === SLIDE02_INDEX;
   const isLast = slide === SLIDES.length - 1;
   const SlideComponent = SLIDES[slide] ?? SLIDES[0];
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
-      {/* Persistent Canvas — mounts ONCE, never unmounts. Memoized so
-          interaction-count re-renders never touch the 3D scene. */}
-      <HeroCanvas active={isTitle} onInteraction={broadcastTap} />
-
-      {/* Slide overlay — plain DOM, above canvas */}
       <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }}>
-        {isTitle ? null : isSlide02 ? (
+        {isSlide02 ? (
           // Audience watches the presenter's highlight. No onSelect, no
           // isPresenter → words render as plain text, no clicking.
           <Slide02WhatIs
@@ -46,7 +32,7 @@ export default function AudiencePage() {
             activeIndex={state.activeIndex}
           />
         ) : (
-          <SlideComponent interactive={true} onTap={broadcastTap} />
+          <SlideComponent interactive={true} onTap={broadcastTap} epoch={state.jamEpoch} />
         )}
       </div>
 
@@ -55,7 +41,7 @@ export default function AudiencePage() {
         <InteractionTally tapTotal={state.tapTotal} hoverTotal={state.hoverTotal} />
       )}
 
-      <TelusLogo hidden={isTitle} />
+      <TelusLogo hidden={slide === 0} />
     </div>
   );
 }

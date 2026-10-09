@@ -1,7 +1,7 @@
 "use client";
 
-// Fixed TELUS Digital wordmark. Shown on every slide EXCEPT the hero (the
-// hero is its own moment; the logo would compete with the CRT title card).
+// Fixed TELUS Digital wordmark. Shown on every slide EXCEPT the jam shelf
+// (slide 1 draws its own logo top-left).
 export function TelusLogo({ hidden }: { hidden: boolean }) {
   if (hidden) return null;
   return (

@@ -16,6 +16,7 @@
     "@types/canvas-confetti": "^1.9.0",
     "canvas-confetti": "^1.9.4",
     "howler": "^2.2.4",
+    "lottie-web": "^5.13.0",
     "motion": "^12.42.2",
     "next": "16.2.9",
     "partyserver": "^0.5.8",

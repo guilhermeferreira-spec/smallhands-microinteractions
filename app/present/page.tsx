@@ -1,20 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import dynamic from "next/dynamic";
 import { useRoom } from "@/hooks/useRoom";
 import { SLIDES } from "@/components/slides";
 import { TapWave } from "@/components/TapWave";
 import { InteractionTally } from "@/components/InteractionTally";
 import { TelusLogo } from "@/components/TelusLogo";
 import Slide02WhatIs from "@/components/slides/Slide02WhatIs";
-
-// Code-split the 3D hero (three.js + troika + GLB models + preloads inside
-// ChiiModel) into its own chunk so the rest of the app doesn't wait on it.
-const HeroCanvas = dynamic(
-  () => import("@/components/HeroCanvas").then((m) => m.HeroCanvas),
-  { ssr: false },
-);
 
 const TOTAL = SLIDES.length;
 // Index of the anatomy slide in the SLIDES array. If you reorder slides,
@@ -26,7 +18,7 @@ export default function PresenterPage() {
   // Mirror of `slide` for the nav callbacks (avoids stale closures) and so we
   // can adopt the server's persisted slide without re-broadcasting it.
   const slideRef = useRef(0);
-  const { state, broadcastSlide, broadcastActiveIndex, broadcastTap, broadcastReset } =
+  const { state, broadcastSlide, broadcastActiveIndex, broadcastTap, broadcastReset, broadcastJamReset } =
     useRoom({
       // On (re)connect the server sends the persisted slide via `init`. Adopt
       // it WITHOUT broadcasting, so a presenter reload lands on the saved slide
@@ -42,6 +34,12 @@ export default function PresenterPage() {
       broadcastReset();
     }
   }, [broadcastReset]);
+
+  const resetJam = useCallback(() => {
+    if (window.confirm("Reset everyone's jam pick? They can choose again.")) {
+      broadcastJamReset();
+    }
+  }, [broadcastJamReset]);
 
   // Navigation broadcasts only on real user intent (never on mount/adopt).
   const go = useCallback(
@@ -66,19 +64,13 @@ export default function PresenterPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [next, prev]);
 
-  const isTitle = slide === 0;
   const isSlide02 = slide === SLIDE02_INDEX;
   const SlideComponent = SLIDES[slide];
 
   return (
     <div className="relative w-screen h-screen bg-black overflow-hidden">
-      {/* Persistent Canvas — mounts ONCE, never unmounts. Memoized so
-          interaction-count re-renders never touch the 3D scene. */}
-      <HeroCanvas active={isTitle} onInteraction={broadcastTap} />
-
-      {/* Slide overlay — plain DOM, above canvas */}
       <div style={{ position: "relative", zIndex: 2, width: "100%", height: "100%" }}>
-        {isTitle ? null : isSlide02 ? (
+        {isSlide02 ? (
           // Presenter controls the highlight; clicking a word broadcasts it.
           <Slide02WhatIs
             interactive={false}
@@ -119,6 +111,13 @@ export default function PresenterPage() {
           {state.tapTotal + state.hoverTotal} interactions · {state.tapTotal} taps · {state.hoverTotal} hovers · {state.tapCount} recent
         </span>
         <button
+          onClick={resetJam}
+          title="Let everyone pick a jam again"
+          className="px-2 h-7 rounded border border-white/20 text-white/50 hover:text-white/90 hover:border-white/50 transition-colors"
+        >
+          reset jam
+        </button>
+        <button
           onClick={resetInteractions}
           title="Reset interaction counter"
           aria-label="Reset interaction counter"
@@ -132,7 +131,7 @@ export default function PresenterPage() {
         </button>
       </div>
 
-      <TelusLogo hidden={isTitle} />
+      <TelusLogo hidden={slide === 0} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ export interface RoomState {
   tapCount: number; // recent interactions (3s window)
   tapTotal: number; // cumulative taps
   hoverTotal: number; // cumulative hovers
+  jamEpoch: number | null; // bumps when the presenter resets jam picks (null until init)
 }
 
 interface UseRoomOptions {
@@ -30,6 +31,7 @@ export function useRoom(options: UseRoomOptions = {}) {
     tapCount: 0,
     tapTotal: 0,
     hoverTotal: 0,
+    jamEpoch: null,
   });
   const onSlideRef = useRef(options.onSlide);
   onSlideRef.current = options.onSlide;
@@ -59,6 +61,7 @@ export function useRoom(options: UseRoomOptions = {}) {
           activeIndex: msg.activeIndex ?? -1,
           tapTotal: msg.tapTotal,
           hoverTotal: msg.hoverTotal ?? 0,
+          jamEpoch: msg.jamEpoch ?? 0,
         }));
         onSlideRef.current?.(msg.slide);
       }
@@ -70,6 +73,10 @@ export function useRoom(options: UseRoomOptions = {}) {
 
       if (msg.type === "activeIndex") {
         setState((s) => ({ ...s, activeIndex: msg.index }));
+      }
+
+      if (msg.type === "jam_reset") {
+        setState((s) => ({ ...s, jamEpoch: msg.epoch }));
       }
 
       if (msg.type === "tap_aggregate") {
@@ -120,11 +127,16 @@ export function useRoom(options: UseRoomOptions = {}) {
     socketRef.current?.send(JSON.stringify({ type: "reset" }));
   }, []);
 
+  const broadcastJamReset = useCallback(() => {
+    socketRef.current?.send(JSON.stringify({ type: "jam_reset" }));
+  }, []);
+
   return {
     state,
     broadcastSlide,
     broadcastActiveIndex,
     broadcastTap,
     broadcastReset,
+    broadcastJamReset,
   };
 }

@@ -35,6 +35,14 @@ export interface InitMessage {
   activeIndex: number;
   tapTotal: number;
   hoverTotal: number;
+  jamEpoch: number;
+}
+
+// Presenter clears everyone's jam pick. The server only bumps a counter:
+// clients keep their pick tagged with the epoch it was made in, so a pick from
+// an older epoch is ignored — even on devices that were offline during the reset.
+export interface JamResetMessage {
+  type: "jam_reset";
 }
 
 export interface ResetMessage {
@@ -45,6 +53,7 @@ type IncomingMessage =
   | SlideMessage
   | TapBatchMessage
   | ResetMessage
+  | JamResetMessage
   | ActiveIndexMessage;
 
 interface Env {
@@ -58,6 +67,7 @@ export class SmallHandsParty extends Server<Env> {
   currentActiveIndex = -1;
   tapTotal = 0;
   hoverTotal = 0;
+  jamEpoch = 0;
   // Rolling window: interaction timestamps from the last 3 seconds. Ephemeral
   // (not persisted) — a 3s window is meaningless to restore after a wake.
   recentTaps: number[] = [];
@@ -70,12 +80,14 @@ export class SmallHandsParty extends Server<Env> {
       activeIndex: number;
       tapTotal: number;
       hoverTotal: number;
+      jamEpoch: number;
     }>("state");
     if (s) {
       this.currentSlide = s.slide ?? 0;
       this.currentActiveIndex = s.activeIndex ?? -1;
       this.tapTotal = s.tapTotal ?? 0;
       this.hoverTotal = s.hoverTotal ?? 0;
+      this.jamEpoch = s.jamEpoch ?? 0;
     }
   }
 
@@ -86,6 +98,7 @@ export class SmallHandsParty extends Server<Env> {
       activeIndex: this.currentActiveIndex,
       tapTotal: this.tapTotal,
       hoverTotal: this.hoverTotal,
+      jamEpoch: this.jamEpoch,
     });
   }
 
@@ -97,6 +110,7 @@ export class SmallHandsParty extends Server<Env> {
       activeIndex: this.currentActiveIndex,
       tapTotal: this.tapTotal,
       hoverTotal: this.hoverTotal,
+      jamEpoch: this.jamEpoch,
     };
     connection.send(JSON.stringify(init));
   }
@@ -117,6 +131,13 @@ export class SmallHandsParty extends Server<Env> {
       this.save();
       // Broadcast to all, including the sender.
       this.broadcast(JSON.stringify(msg));
+    }
+
+    if (msg.type === "jam_reset") {
+      this.jamEpoch += 1;
+      this.save();
+      this.broadcast(JSON.stringify({ type: "jam_reset", epoch: this.jamEpoch }));
+      return;
     }
 
     if (msg.type === "reset") {
