@@ -43,7 +43,6 @@ const tagText = (hex: string) => {
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1a1a1a" : "#ffffff";
 };
 
-const HOVER_DWELL_MS = 250; // sweeping across the shelf shouldn't count 7 hovers
 
 // Motion + blob knobs. Tweak live at /jam, then paste the copied JSON into DEFAULT_TUNING.
 export type JamTuning = {
@@ -386,7 +385,6 @@ export default function JamShelf({
   const committed = committedOverride ?? committedState;
   const locked = committed !== null;
   const active = locked ? committed : (pinned ?? hovered);
-  const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
   const armed = useRef<number | null>(null); // touch: first tap previews, second commits
 
   // Restore a previous pick (reload mid-talk must not allow a re-pick) and obey
@@ -415,18 +413,9 @@ export default function JamShelf({
   // Warm the lottie chunk so the first hover doesn't wait on a download.
   useEffect(() => {
     void import("lottie-web");
-    return () => {
-      if (dwell.current) clearTimeout(dwell.current);
-    };
   }, []);
 
-  const clearDwell = () => {
-    if (dwell.current) clearTimeout(dwell.current);
-    dwell.current = null;
-  };
-
   const commit = (i: number) => {
-    clearDwell();
     setActive(i);
     setCommitted(i);
     if (persist) {
@@ -434,7 +423,6 @@ export default function JamShelf({
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ i, epoch }));
       } catch {}
     }
-    onTap("tap");
   };
 
   const chosen = committed !== null ? JAMS[committed] : null;
@@ -570,18 +558,17 @@ export default function JamShelf({
                 onPointerEnter={(e) => {
                   if (locked) return;
                   setActive(i);
-                  if (e.pointerType !== "mouse" || !interactive) return;
-                  clearDwell();
-                  dwell.current = setTimeout(() => onTap("hover"), HOVER_DWELL_MS);
+                  // Every hover counts as an interaction (audience devices only).
+                  if (interactive) onTap("hover");
                 }}
                 onPointerLeave={(e) => {
                   if (locked) return;
-                  clearDwell();
                   // Touch has no "leave" while held; keep it lit until another jar is touched.
                   if (e.pointerType === "mouse") setActive((a) => (a === i ? null : a));
                 }}
                 onClick={(e) => {
-                  // Only audience devices pick; the presenter screen just watches.
+                  // Only audience devices count and pick; the presenter screen just watches.
+                  if (interactive) onTap("tap"); // every click counts, even after the pick is locked
                   if (locked || !interactive) {
                     setActive(i);
                     return;
